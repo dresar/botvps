@@ -478,7 +478,7 @@ class BotGateway:
             )
 
             if status_msg:
-                await self.edit_message_text(chat_id, status_msg.message_id, response_html)
+                await self.edit_message(chat_id, status_msg.message_id, response_html)
             else:
                 await self.send_message(chat_id, response_html)
 
@@ -501,7 +501,7 @@ class BotGateway:
             logger.exception("Gagal memproses media Multimodal AI.")
             err_msg = f"❌ <b>Gagal Menganalisis Media:</b> {escape_html(str(e))}"
             if status_msg:
-                await self.edit_message_text(chat_id, status_msg.message_id, err_msg)
+                await self.edit_message(chat_id, status_msg.message_id, err_msg)
             else:
                 await self.send_message(chat_id, err_msg)
 

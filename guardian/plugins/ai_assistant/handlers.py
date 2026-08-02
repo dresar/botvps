@@ -36,12 +36,19 @@ class AIAssistantHandlers:
 
     async def handle_ask(self, ctx: CommandContext) -> None:
         """Tanya AI Assistant Hermes atau Kelola Key & Skills. Syntax: /ask [pertanyaan|subcommand]"""
-        if not ctx.args:
+        sub = ""
+        sub_args: list[str] = []
+
+        if ctx.command and ctx.command.lower() not in ("menu", "ask", "help", "ai"):
+            sub = ctx.command.lower()
+            sub_args = ctx.args
+        elif ctx.args:
+            sub = ctx.args[0].lower()
+            sub_args = ctx.args[1:]
+
+        if not sub:
             await self._show_help(ctx)
             return
-
-        sub = ctx.args[0].lower()
-        sub_args = ctx.args[1:]
 
         if sub == "remember":
             await self._handle_remember(ctx, sub_args)
