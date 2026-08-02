@@ -354,6 +354,36 @@ class BotGateway:
                 )
             return
 
+        NAV_COMMAND_MAP = {
+            "nav:system_status": ("system", "status"),
+            "nav:service_list": ("service", "list"),
+            "nav:docker_list": ("docker", "list"),
+            "nav:alert_list": ("alert", "list"),
+            "nav:schedule_list": ("schedule", "list"),
+            "nav:user_list": ("user", "list"),
+            "nav:audit_list": ("audit", "list"),
+            "nav:settings": ("system", "status"),
+        }
+
+        if data in NAV_COMMAND_MAP:
+            namespace, command = NAV_COMMAND_MAP[data]
+            registered = self._ctx.plugin_manager.get_command(namespace, command)
+            if registered:
+                cmd_ctx = CommandContext(
+                    user=user,
+                    chat_id=query.message.chat_id if query.message else telegram_user.id,
+                    message_id=query.message.message_id if query.message else 0,
+                    command=command,
+                    args=[],
+                    raw_text=f"/{namespace} {command}",
+                    update=update,
+                    bot_gateway=self,
+                    app_ctx=self._ctx,
+                )
+                await self.answer_callback_query(query.id)
+                await registered.handler(cmd_ctx)
+                return
+
         if handler:
             callback_ctx = CallbackContext(
                 user=user,
@@ -372,6 +402,26 @@ class BotGateway:
                 logger.exception("Error pada callback handler.", data=data)
                 await self.answer_callback_query(query.id, text="Terjadi kesalahan.", show_alert=True)
         else:
+            # Fallback: jika format data adalah namespace:command
+            if ":" in data:
+                parts = data.split(":", 1)
+                registered = self._ctx.plugin_manager.get_command(parts[0], parts[1])
+                if registered:
+                    cmd_ctx = CommandContext(
+                        user=user,
+                        chat_id=query.message.chat_id if query.message else telegram_user.id,
+                        message_id=query.message.message_id if query.message else 0,
+                        command=parts[1],
+                        args=[],
+                        raw_text=f"/{parts[0]} {parts[1]}",
+                        update=update,
+                        bot_gateway=self,
+                        app_ctx=self._ctx,
+                    )
+                    await self.answer_callback_query(query.id)
+                    await registered.handler(cmd_ctx)
+                    return
+
             await self.answer_callback_query(query.id, text="Perintah tidak dikenali.")
 
     async def _route_command(
