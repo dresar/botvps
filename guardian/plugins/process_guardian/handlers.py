@@ -77,7 +77,7 @@ class CPUGuardHandlers:
             f"<b>Blacklist (Rule Custom):</b> {len(cfg.blacklist)} aplikasi"
         )
         kb = InlineKeyboardMarkup([nav_row(main_menu=True)])
-        await ctx.bot_gateway.send_message(ctx.chat_id, msg, keyboard=kb)
+        await ctx.respond(msg, keyboard=kb)
 
     async def _show_top(self, ctx: CommandContext) -> None:
         """Tampilkan Top 20 CPU processes."""

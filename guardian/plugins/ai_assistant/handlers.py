@@ -54,13 +54,15 @@ class AIAssistantHandlers:
 
     async def _handle_chat_query(self, ctx: CommandContext) -> None:
         """Proses percakapan utama dengan AI."""
-        user_prompt = " ".join(ctx.args)
+        user_prompt = " ".join(ctx.args).strip()
         if not user_prompt:
             raw = ctx.raw_text.strip()
             for prefix in ("/ask", "/ai"):
                 if raw.lower().startswith(prefix):
                     user_prompt = raw[len(prefix):].strip()
                     break
+            if not user_prompt:
+                user_prompt = raw
 
         if not user_prompt:
             await self._show_help(ctx)

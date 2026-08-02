@@ -62,7 +62,7 @@ class PackageProtectionHandlers:
             f"<i>Sistem secara otomatis memonitor proses, sistem file, dan perintah instalasi dari paket terlarang.</i>"
         )
         kb = InlineKeyboardMarkup([nav_row(main_menu=True)])
-        await ctx.bot_gateway.send_message(ctx.chat_id, msg, keyboard=kb)
+        await ctx.respond(msg, keyboard=kb)
 
     async def _run_scan(self, ctx: CommandContext) -> None:
         """Jalankan scan manual."""

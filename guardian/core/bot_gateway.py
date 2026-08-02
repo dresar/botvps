@@ -410,15 +410,28 @@ class BotGateway:
 
         NAV_COMMAND_MAP = {
             "nav:system_status": ("system", "status"),
+            "nav:status": ("system", "status"),
             "nav:service_list": ("service", "list"),
+            "nav:service": ("service", "list"),
             "nav:docker_list": ("docker", "list"),
+            "nav:docker": ("docker", "list"),
             "nav:cpu_guard_status": ("cpu_guard", "menu"),
+            "nav:cpu_guard": ("cpu_guard", "menu"),
+            "nav:cpu": ("cpu_guard", "menu"),
             "nav:package_guard_status": ("package_guard", "menu"),
+            "nav:package_guard": ("package_guard", "menu"),
+            "nav:package": ("package_guard", "menu"),
             "nav:alert_list": ("alert", "list"),
+            "nav:alert": ("alert", "list"),
             "nav:schedule_list": ("schedule", "list"),
+            "nav:schedule": ("schedule", "list"),
             "nav:user_list": ("user", "list"),
+            "nav:user": ("user", "list"),
             "nav:ai_help": ("ask", "menu"),
+            "nav:ai": ("ask", "menu"),
+            "nav:ask": ("ask", "menu"),
             "nav:audit_list": ("audit", "list"),
+            "nav:audit": ("audit", "list"),
             "nav:settings": ("system", "status"),
         }
 
