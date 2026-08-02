@@ -299,17 +299,22 @@ class BotGateway:
         from telegram import BotCommand
 
         commands = [
-            BotCommand("start", "🏠 Dashboard Menu Utama"),
-            BotCommand("status", "📊 Cek resource VPS (CPU, RAM, Disk)"),
-            BotCommand("ask", "🧠 AI Assistant Gemini (Konteks VPS & Memory)"),
-            BotCommand("cpu_guard", "🛡️ Dashboard & Kontrol Auto Process CPU Guardian"),
-            BotCommand("package_guard", "📦 Dashboard & Kontrol Package Protection"),
-            BotCommand("service", "⚙️ Manajemen Layanan Systemd VPS"),
-            BotCommand("docker", "🐳 Manajemen Kontainer Docker"),
-            BotCommand("alert", "🔔 Pengaturan Notifikasi Alert"),
-            BotCommand("schedule", "📅 Pengaturan Jadwal Task Otomatis"),
-            BotCommand("user", "👥 Manajemen Pengguna & Hak Akses"),
-            BotCommand("audit", "📋 Lihat Log Audit Aktivitas"),
+            BotCommand("start", "🏠 Menu Utama & Dashboard"),
+            BotCommand("status", "📊 Status Real-time CPU, RAM & Disk"),
+            BotCommand("ask", "🧠 Tanya AI Universal & Multimodal"),
+            BotCommand("ai", "⚡ Menu Konfigurasi & Pool AI"),
+            BotCommand("keys", "🔑 Kelola SQLite Gemini Key Pool"),
+            BotCommand("groqkeys", "⚡ Kelola SQLite Groq Backup Pool"),
+            BotCommand("clearkeys", "🧹 Hapus Massal Key Mati 1-Klik"),
+            BotCommand("skill", "🛠️ Kelola Hermes Dynamic Skills"),
+            BotCommand("schedule", "📅 Kelola Penjadwalan & AI Reminder"),
+            BotCommand("alert", "🔔 Konfigurasi Alert & Notifikasi"),
+            BotCommand("cpu_guard", "🛡️ Kontrol CPU Guardian & Process"),
+            BotCommand("package_guard", "📦 Kontrol Proteksi Package"),
+            BotCommand("service", "⚙️ Kelola Service Systemd VPS"),
+            BotCommand("docker", "🐳 Kelola Kontainer Docker"),
+            BotCommand("user", "👥 Kelola User & Otorisasi Admin"),
+            BotCommand("audit", "📋 Audit Log Aktivitas VPS"),
         ]
         try:
             await self._bot.set_my_commands(commands)
@@ -648,6 +653,8 @@ class BotGateway:
             "cancel": ("nav", "cancel"),
             "ask": ("ask", "menu"),
             "ai": ("ask", "menu"),
+            "keys": ("ask", "keys"),
+            "clearkeys": ("ask", "clearkeys"),
             "skill": ("skill", "list"),
             "skills": ("skill", "list"),
             "groq": ("ask", "groqkeys"),
