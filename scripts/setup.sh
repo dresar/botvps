@@ -105,7 +105,9 @@ User=serverinka
 Group=serverinka
 WorkingDirectory=/opt/serverinka-guardian
 EnvironmentFile=/etc/serverinka/guardian.env
-ExecStart=/usr/local/bin/uv run python -m guardian
+Environment=HOME=/home/serverinka
+Environment=PATH=/opt/serverinka-guardian/.venv/bin:/usr/local/bin:/usr/bin:/bin
+ExecStart=/opt/serverinka-guardian/.venv/bin/python -m guardian
 Restart=always
 RestartSec=10s
 StandardOutput=journal
@@ -114,7 +116,7 @@ LimitNOFILE=65536
 
 # Security hardening
 ProtectSystem=full
-ProtectHome=true
+ProtectHome=false
 NoNewPrivileges=false
 
 [Install]
