@@ -35,6 +35,7 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         "schedule:read", "schedule:write",
         "audit:read",
         "bot:admin",
+        "terminal:read", "terminal:execute",
     }),
     "admin": frozenset({
         "system:read", "system:write",
@@ -44,6 +45,7 @@ ROLE_PERMISSIONS: dict[str, frozenset[str]] = {
         "alert:read", "alert:write",
         "schedule:read", "schedule:write",
         "audit:read",
+        "terminal:read", "terminal:execute",
     }),
     "operator": frozenset({
         "system:read",
@@ -231,6 +233,8 @@ class AuthService:
         user = await self.get_user(telegram_id)
         if not user or not user.is_active or user.is_blocked:
             return False
+        if user.role == "super_admin":
+            return True
         role_perms = ROLE_PERMISSIONS.get(user.role, frozenset())
         return permission in role_perms
 
