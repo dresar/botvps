@@ -58,7 +58,7 @@ class GuardianSettings(BaseSettings):
     ai_api_key: str = Field(
         default="", description="Default API key AI provider (opsional jika menggunakan SQLite Key Pool)"
     )
-    ai_model: str = Field(default="gemini-1.5-flash", description="Model AI (default: gemini-1.5-flash)")
+    ai_model: str = Field(default="gemini-2.5-flash", description="Model AI default")
     ollama_base_url: str = Field(
         default="http://localhost:11434", description="URL Ollama"
     )

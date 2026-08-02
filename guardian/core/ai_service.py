@@ -72,13 +72,21 @@ class AIService:
             )
 
         target_provider = (provider or self._settings.ai_provider).lower()
-        default_model = "llama-3.3-70b-versatile" if target_provider == "groq" else "gemini-1.5-flash"
+        default_model = "llama-3.3-70b-versatile" if target_provider == "groq" else "gemini-2.5-flash"
         target_model = model or self._settings.ai_model or default_model
-        if target_model in ("gemini-2.5-flash", "gemini-2.5-flash-latest", "gemini-2.5"):
-            target_model = "gemini-1.5-flash"
 
         if target_provider == "gemini":
-            endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{target_model}:generateContent?key={target_key}"
+            raw_candidates = [
+                target_model,
+                "gemini-2.5-flash",
+                "gemini-3.1-flash-lite",
+                "gemini-3.5-flash",
+                "gemini-2.5-flash-lite",
+                "gemini-3-flash",
+                "gemini-1.5-flash",
+            ]
+            seen = set()
+            candidate_models = [m for m in raw_candidates if not (m in seen or seen.add(m))]
 
             contents = []
             for i, msg in enumerate(messages):
@@ -101,44 +109,60 @@ class AIService:
             if system_prompt:
                 body["systemInstruction"] = {"parts": [{"text": system_prompt}]}
 
-            logger.debug("Mengirim request ke Official Google Gemini API...", model=target_model)
-
+            last_gemini_error = None
             try:
-                async with httpx.AsyncClient(timeout=30.0) as client:
-                    response = await client.post(endpoint, json=body)
-                    if response.status_code != 200:
-                        raise httpx.HTTPStatusError(
-                            f"HTTP Status {response.status_code}",
-                            request=response.request,
-                            response=response,
+                for model_name in candidate_models:
+                    endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={target_key}"
+                    logger.debug("Mengirim request ke Official Google Gemini API...", model=model_name)
+
+                    try:
+                        async with httpx.AsyncClient(timeout=30.0) as client:
+                            response = await client.post(endpoint, json=body)
+                            if response.status_code != 200:
+                                raise httpx.HTTPStatusError(
+                                    f"HTTP Status {response.status_code}",
+                                    request=response.request,
+                                    response=response,
+                                )
+                            data = response.json()
+
+                            candidates = data.get("candidates", [])
+                            if candidates and len(candidates) > 0:
+                                parts = candidates[0].get("content", {}).get("parts", [])
+                                if parts and len(parts) > 0:
+                                    content = parts[0].get("text", "").strip()
+                                    return content
+                            raise AIProviderError("Response Google Gemini tidak berisi balasan valid.")
+
+                    except httpx.HTTPStatusError as e:
+                        err_body = e.response.text
+                        status_code = e.response.status_code
+                        logger.error(
+                            "HTTP Error dari Google Gemini API",
+                            model=model_name,
+                            status_code=status_code,
+                            body=err_body,
                         )
-                    data = response.json()
+                        last_gemini_error = AIProviderError(
+                            f"Google Gemini API Error (Status {status_code})",
+                            detail=err_body,
+                            status_code=status_code,
+                        )
+                        if status_code == 404:
+                            continue
+                        break
+                    except httpx.RequestError as e:
+                        logger.error("Network Error saat menghubungi Google Gemini API", model=model_name, error=str(e))
+                        last_gemini_error = AIProviderError(
+                            f"Gagal menghubungi Google Gemini API: {e}",
+                            detail=str(e),
+                        )
+                        continue
 
-                    candidates = data.get("candidates", [])
-                    if candidates and len(candidates) > 0:
-                        parts = candidates[0].get("content", {}).get("parts", [])
-                        if parts and len(parts) > 0:
-                            content = parts[0].get("text", "").strip()
-                            return content
-                    raise AIProviderError("Response Google Gemini tidak berisi balasan valid.")
-
-            except httpx.HTTPStatusError as e:
-                logger.error(
-                    "HTTP Error dari Google Gemini API",
-                    status_code=e.response.status_code,
-                    body=e.response.text,
-                )
-                raise AIProviderError(
-                    f"Google Gemini API Error (Status {e.response.status_code})",
-                    detail=e.response.text,
-                    status_code=e.response.status_code,
-                ) from e
-            except httpx.RequestError as e:
-                logger.error("Network Error saat menghubungi Google Gemini API", error=str(e))
-                raise AIProviderError(
-                    f"Gagal menghubungi Google Gemini API: {e}",
-                    detail=str(e),
-                ) from e
+                if last_gemini_error:
+                    raise last_gemini_error
+            except AIProviderError:
+                raise
             except Exception as e:
                 logger.exception("Error tak terduga pada AIService Gemini.")
                 raise AIProviderError(f"Error AI Completion Gemini: {e}") from e
