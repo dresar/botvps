@@ -50,13 +50,15 @@ class CommandContext:
     ) -> Message | None:
         """Kirim pesan baru jika diketik manual, atau EDIT pesan yang ada jika ditekan via tombol inline."""
         if self.update and self.update.callback_query and self.message_id:
-            return await self.bot_gateway.edit_message(
+            edited = await self.bot_gateway.edit_message(
                 chat_id=self.chat_id,
                 message_id=self.message_id,
                 text=text,
                 keyboard=keyboard,
                 parse_mode=parse_mode,
             )
+            if edited:
+                return edited
         return await self.bot_gateway.send_message(
             chat_id=self.chat_id,
             text=text,
@@ -132,6 +134,22 @@ class BotGateway:
                 reply_markup=keyboard,
                 parse_mode=parse_mode,
             )
+        except TelegramError as e:
+            err_str = str(e).lower()
+            if "can't parse entities" in err_str or "unsupported start tag" in err_str:
+                logger.warning("HTML parsing error, retrying without HTML formatting...", error=str(e))
+                clean_text = text.replace("<b>", "").replace("</b>", "").replace("<i>", "").replace("</i>", "").replace("<code>", "").replace("</code>", "").replace("<pre>", "").replace("</pre>", "")
+                try:
+                    return await self._bot.send_message(
+                        chat_id=chat_id,
+                        text=clean_text[:MAX_MESSAGE_LENGTH],
+                        reply_markup=keyboard,
+                        parse_mode=None,
+                    )
+                except Exception:
+                    pass
+            logger.error("Gagal mengirim pesan.", chat_id=chat_id, error=str(e))
+            return None
         except Exception as e:
             logger.error("Gagal mengirim pesan.", chat_id=chat_id, error=str(e))
             return None
@@ -204,8 +222,25 @@ class BotGateway:
                 return result
             return None
         except TelegramError as e:
-            if "message is not modified" not in str(e).lower():
-                logger.warning("Gagal mengedit pesan.", error=str(e))
+            err_str = str(e).lower()
+            if "message is not modified" in err_str:
+                return None
+            if "can't parse entities" in err_str or "unsupported start tag" in err_str:
+                logger.warning("HTML parsing error on edit_message, retrying clean text...", error=str(e))
+                clean_text = text.replace("<b>", "").replace("</b>", "").replace("<i>", "").replace("</i>", "").replace("<code>", "").replace("</code>", "").replace("<pre>", "").replace("</pre>", "")
+                try:
+                    res = await self._bot.edit_message_text(
+                        chat_id=chat_id,
+                        message_id=message_id,
+                        text=clean_text[:MAX_MESSAGE_LENGTH],
+                        reply_markup=keyboard,
+                        parse_mode=None,
+                    )
+                    if isinstance(res, Message):
+                        return res
+                except Exception:
+                    pass
+            logger.warning("Gagal mengedit pesan.", error=str(e))
             return None
 
     async def answer_callback_query(

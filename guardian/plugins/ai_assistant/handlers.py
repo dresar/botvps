@@ -250,7 +250,7 @@ class AIAssistantHandlers:
                 status_icon = "🟢" if k["is_active"] == 1 else "🔴"
                 err_str = f"⚠️ Err: {k['error_count']}" if k['error_count'] > 0 else "✅ No Err"
                 lines.append(
-                    f"{status_icon} <b>[ID #{k['id']}]</b> <code>{k['api_key_masked']}</code> | {err_str} | Use: {k['usage_count']}"
+                    f"{status_icon} <b>[ID #{k['id']}]</b> <code>{escape_html(k['api_key_masked'])}</code> | {err_str} | Use: {k['usage_count']}"
                 )
 
         lines.append("\n💡 <i>Gunakan <code>/ai delgroq [ID]</code> untuk menghapus key Groq tertentu.</i>")
@@ -452,7 +452,7 @@ class AIAssistantHandlers:
                 status_icon = "🟢" if k["is_active"] == 1 else "🔴"
                 err_str = f"⚠️ Err: {k['error_count']}" if k['error_count'] > 0 else "✅ No Err"
                 lines.append(
-                    f"{status_icon} <b>[ID #{k['id']}]</b> <code>{k['api_key_masked']}</code> | {err_str} | Use: {k['usage_count']}"
+                    f"{status_icon} <b>[ID #{k['id']}]</b> <code>{escape_html(k['api_key_masked'])}</code> | {err_str} | Use: {k['usage_count']}"
                 )
 
         lines.append("\n💡 <i>Gunakan <code>/ai delkey [ID]</code> untuk menghapus key Gemini tertentu.</i>")
