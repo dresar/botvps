@@ -74,6 +74,16 @@ class AIAssistantPlugin(BasePlugin):
                 except Exception:
                     pass
 
+        try:
+            await self._service.repo.seed_default_skills(
+                news_key=ctx.settings.news_api_key,
+                weather_key=ctx.settings.openweather_api_key,
+            )
+            if ctx.settings.neon_database_url:
+                await self._service.repo.sync_neon_database(ctx.settings.neon_database_url)
+        except Exception as e:
+            logger.warning("Gagal menyemai default skills / Neon DB sync", error=str(e))
+
         logger.info("AIAssistantPlugin siap.")
 
     async def health_check(self) -> PluginHealth:

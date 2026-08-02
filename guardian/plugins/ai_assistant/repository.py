@@ -386,3 +386,62 @@ class AIMemoryRepository(BaseRepository):
         new_status = 0 if row["is_active"] == 1 else 1
         await self._db.execute("UPDATE ai_skills SET is_active = ? WHERE id = ?", (new_status, skill_id))
         return True
+
+    async def seed_default_skills(self, news_key: str = "", weather_key: str = "") -> None:
+        """Seed default NewsAPI dan OpenWeatherMap skills ke SQLite jika belum ada."""
+        existing = await self.get_skills(active_only=False)
+        skill_names = {s["skill_name"].lower() for s in existing}
+
+        if "newsapi search & headlines" not in skill_names:
+            n_key = news_key or "NEWS_API_KEY"
+            await self.add_skill(
+                skill_name="NewsAPI Search & Headlines",
+                description="Pencarian Berita Terkini & Top Headlines Dunia via NewsAPI.org",
+                trigger_words="berita, news, berita terbaru, headlines, newsapi",
+                instructions=f"Gunakan API Key NewsAPI ({n_key}) untuk mengambil berita terkini dari https://newsapi.org/. Jika pengguna menanyakan berita terbaru, sajikan judul, sumber, dan ringkasan singkat secara rapi.",
+            )
+
+        if "openweathermap weather forecast" not in skill_names:
+            w_key = weather_key or "OPENWEATHER_API_KEY"
+            await self.add_skill(
+                skill_name="OpenWeatherMap Weather Forecast",
+                description="Pengecekan Cuaca & Prakiraan Cuaca Real-time via OpenWeatherMap",
+                trigger_words="cuaca, weather, prakiraan cuaca, suhu, hujan, openweathermap",
+                instructions=f"Gunakan API Key OpenWeatherMap ({w_key}) untuk mengambil data cuaca real-time dari https://api.openweathermap.org/. Jika pengguna menanyakan cuaca, sajikan suhu (°C), kelembapan, dan kondisi cuaca secara akurat.",
+            )
+
+    async def sync_neon_database(self, neon_url: str) -> bool:
+        """Sinkronisasi data SQLite Key Pool & Memori ke Secondary Backup Database Neon PostgreSQL."""
+        if not neon_url:
+            return False
+        try:
+            import psycopg
+            async with await psycopg.AsyncConnection.connect(neon_url) as conn:
+                async with conn.cursor() as cur:
+                    await cur.execute(
+                        """CREATE TABLE IF NOT EXISTS neon_ai_key_pool_backup (
+                            id SERIAL PRIMARY KEY,
+                            api_key TEXT UNIQUE NOT NULL,
+                            provider VARCHAR(50) DEFAULT 'gemini',
+                            is_active INT DEFAULT 1,
+                            usage_count INT DEFAULT 0,
+                            error_count INT DEFAULT 0,
+                            last_error TEXT,
+                            synced_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+                        );"""
+                    )
+                    gemini_keys = await self.get_all_gemini_keys(limit=100)
+                    for k in gemini_keys:
+                        await cur.execute(
+                            """INSERT INTO neon_ai_key_pool_backup (api_key, provider, is_active, usage_count, error_count, last_error)
+                               VALUES (%s, 'gemini', %s, %s, %s, %s)
+                               ON CONFLICT (api_key) DO UPDATE
+                               SET usage_count = EXCLUDED.usage_count, error_count = EXCLUDED.error_count, is_active = EXCLUDED.is_active;""",
+                            (k["api_key_masked"], k["is_active"], k["usage_count"], k["error_count"], k.get("last_error", "")),
+                        )
+                    await conn.commit()
+            return True
+        except Exception as e:
+            import structlog
+            structlog.get_logger(__name__).warning("Neon PostgreSQL backup sync gagal atau terlewati.", error=str(e))
+            return False

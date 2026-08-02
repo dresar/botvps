@@ -51,7 +51,7 @@ class GuardianSettings(BaseSettings):
     # ---- DOCKER ----
     docker_enabled: bool = Field(default=True, description="Aktifkan integrasi Docker")
 
-    # ---- AI ----
+    # ---- AI & EXTERNAL SERVICES ----
     ai_provider: str = Field(
         default="gemini", description="Provider AI: disabled, gemini, openai, ollama"
     )
@@ -61,6 +61,16 @@ class GuardianSettings(BaseSettings):
     ai_model: str = Field(default="gemini-2.5-flash", description="Model AI default")
     ollama_base_url: str = Field(
         default="http://localhost:11434", description="URL Ollama"
+    )
+    news_api_key: str = Field(
+        default="cbb728d0392f4197988424c4a03c51c1", description="API Key NewsAPI.org"
+    )
+    openweather_api_key: str = Field(
+        default="3d584ac2daa9aa6384d01bd495142ee2", description="API Key OpenWeatherMap"
+    )
+    neon_database_url: str = Field(
+        default="postgresql://neondb_owner:npg_AjM2wOlCEW4I@ep-odd-resonance-azzyhzdu-pooler.c-3.ap-southeast-1.aws.neon.tech/neondb?sslmode=require&channel_binding=require",
+        description="Neon PostgreSQL Secondary Backup Database URL for AI",
     )
 
     # ---- BACKUP ----
