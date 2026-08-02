@@ -116,6 +116,21 @@ class GuardianSettings(BaseSettings):
         default_factory=list, description="Plugin yang dinonaktifkan"
     )
 
+    # ---- TERMINAL PLUGIN ----
+    terminal_enabled: bool = Field(default=True, description="Aktifkan plugin terminal shell")
+    terminal_danger_guard: bool = Field(
+        default=True, description="Blokir perintah berbahaya (rm -rf /, dd wipe, dll)"
+    )
+    terminal_max_output_kb: int = Field(
+        default=10, description="Batas ukuran output perintah dalam KB"
+    )
+    terminal_command_timeout: float = Field(
+        default=30.0, description="Timeout eksekusi perintah shell dalam detik"
+    )
+    terminal_session_timeout_minutes: int = Field(
+        default=30, description="Timeout sesi terminal setelah idle (menit)"
+    )
+
     # ---- ADVANCED ----
     connect_timeout: float = Field(default=10.0, description="Timeout koneksi")
     read_timeout: float = Field(default=10.0, description="Timeout baca")

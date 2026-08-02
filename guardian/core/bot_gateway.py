@@ -336,6 +336,9 @@ class BotGateway:
         commands = [
             BotCommand("start", "🏠 Menu Utama & Dashboard"),
             BotCommand("status", "📊 Status Real-time CPU, RAM & Disk"),
+            BotCommand("run", "💻 Eksekusi Perintah Shell Linux"),
+            BotCommand("terminal", "🖥️ Menu Terminal & Sesi Shell"),
+            BotCommand("history", "📋 Riwayat Perintah Terminal"),
             BotCommand("ask", "🧠 Tanya AI Universal & Multimodal"),
             BotCommand("ai", "⚡ Menu Konfigurasi & Pool AI"),
             BotCommand("keys", "🔑 Kelola SQLite Gemini Key Pool"),
@@ -675,6 +678,24 @@ class BotGateway:
     ) -> None:
         """Route command ke plugin handler yang sesuai."""
         if not text.startswith("/"):
+            # --- $ prefix: shortcut ke terminal plugin ---
+            if text.startswith("$ ") or text == "$":
+                terminal_cmd = self._ctx.plugin_manager.get_command("terminal", "run")
+                if terminal_cmd:
+                    cmd_ctx = CommandContext(
+                        user=user,
+                        chat_id=chat_id,
+                        message_id=update.message.message_id if update.message else 0,
+                        command="run",
+                        args=text[2:].split() if len(text) > 2 else [],
+                        raw_text=text,
+                        update=update,
+                        bot_gateway=self,
+                        app_ctx=self._ctx,
+                    )
+                    await terminal_cmd.handler(cmd_ctx)
+                    return
+
             # Jika pesan berupa teks biasa tanpa /, teruskan langsung ke AI Assistant
             ai_cmd = self._ctx.plugin_manager.get_command("ask", "menu")
             if ai_cmd:
@@ -736,6 +757,12 @@ class BotGateway:
             "user_list": ("user", "list"),
             "audit": ("audit", "list"),
             "audit_list": ("audit", "list"),
+            # Terminal plugin shortcuts
+            "run": ("terminal", "run"),
+            "terminal": ("terminal", "menu"),
+            "shell": ("terminal", "menu"),
+            "history": ("terminal", "history"),
+            "cmd": ("terminal", "run"),
         }
 
         if raw_command in SHORTCUTS:

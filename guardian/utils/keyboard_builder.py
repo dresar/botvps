@@ -61,6 +61,10 @@ def build_main_menu_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton("📋 Audit Log", callback_data="nav:audit_list"),
         ],
         [
+            InlineKeyboardButton("🖥️ Terminal Shell", callback_data="terminal:menu"),
+            InlineKeyboardButton("📋 Riwayat Terminal", callback_data="terminal:history"),
+        ],
+        [
             InlineKeyboardButton("⚙️ Pengaturan System", callback_data="nav:settings"),
             InlineKeyboardButton("🔄 Refresh Menu", callback_data="nav:main_menu"),
         ],
@@ -208,6 +212,7 @@ def build_sub_dashboard_keyboard(
             InlineKeyboardButton("🧠 AI Chat", callback_data="nav:ai_help"),
         ],
         [
+            InlineKeyboardButton("🖥️ Terminal", callback_data="terminal:menu"),
             InlineKeyboardButton("⚙️ Pengaturan", callback_data="nav:settings"),
             InlineKeyboardButton("🏠 Menu Utama", callback_data="nav:main_menu"),
         ],
