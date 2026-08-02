@@ -53,10 +53,15 @@ class GuardianSettings(BaseSettings):
 
     # ---- AI ----
     ai_provider: str = Field(
-        default="disabled", description="Provider AI: disabled, openai, gemini, ollama"
+        default="gemini", description="Provider AI: disabled, openai, gemini, ollama, gateway"
     )
-    ai_api_key: str = Field(default="", description="API key AI provider")
-    ai_model: str = Field(default="gpt-4o-mini", description="Model AI")
+    ai_api_key: str = Field(
+        default="AR_7651fb06_0f19ac85a3a409b4fe568b2afb7a1512", description="API key AI provider"
+    )
+    ai_base_url: str = Field(
+        default="https://one.apprentice.cyou/v1", description="Base URL API Gateway AI"
+    )
+    ai_model: str = Field(default="gemini-2.5-flash", description="Model AI")
     ollama_base_url: str = Field(
         default="http://localhost:11434", description="URL Ollama"
     )
@@ -105,7 +110,7 @@ class GuardianSettings(BaseSettings):
     @classmethod
     def validate_ai_provider(cls, v: str) -> str:
         """Validasi AI provider."""
-        allowed = {"disabled", "openai", "gemini", "ollama"}
+        allowed = {"disabled", "openai", "gemini", "ollama", "gateway"}
         if v.lower() not in allowed:
             raise ValueError(f"ai_provider harus salah satu dari: {allowed}")
         return v.lower()
