@@ -50,6 +50,13 @@ class PackageProtectionPlugin(BasePlugin):
             permissions=["system:read"],
             description="Proteksi VPS dari Paket Terlarang",
         )
+        ctx.plugin_manager.register_command(
+            namespace="package",
+            command="status",
+            handler=handlers.handle_package_guard,
+            permissions=["system:read"],
+            description="Proteksi VPS dari Paket Terlarang",
+        )
 
         # 1. Startup Scanner: Jalankan pemindaian otomatis saat bot menyala / VPS reboot
         asyncio.create_task(self._run_startup_scan())
