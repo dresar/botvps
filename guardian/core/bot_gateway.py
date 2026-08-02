@@ -529,21 +529,34 @@ class BotGateway:
             "menu": ("nav", "menu"),
             "help": ("nav", "help"),
             "status": ("system", "status"),
+            "system_status": ("system", "status"),
+            "settings": ("system", "settings"),
+            "config": ("system", "settings"),
             "cancel": ("nav", "cancel"),
             "ask": ("ask", "menu"),
             "ai": ("ask", "menu"),
             "package_guard": ("package_guard", "menu"),
+            "package_guard_status": ("package_guard", "menu"),
             "package_protection": ("package_guard", "menu"),
+            "package_scan": ("package_guard", "scan"),
             "package": ("package_guard", "menu"),
             "cpu_guard": ("cpu_guard", "menu"),
+            "cpu_guard_status": ("cpu_guard", "menu"),
+            "cpu_top": ("cpu_guard", "top"),
             "process_guardian": ("cpu_guard", "menu"),
             "cpu": ("cpu_guard", "menu"),
             "service": ("service", "list"),
+            "service_list": ("service", "list"),
             "docker": ("docker", "list"),
+            "docker_list": ("docker", "list"),
             "alert": ("alert", "list"),
+            "alert_list": ("alert", "list"),
             "schedule": ("schedule", "list"),
+            "schedule_list": ("schedule", "list"),
             "user": ("user", "list"),
+            "user_list": ("user", "list"),
             "audit": ("audit", "list"),
+            "audit_list": ("audit", "list"),
         }
 
         if raw_command in SHORTCUTS:
@@ -558,17 +571,39 @@ class BotGateway:
         elif ":" in raw_command:
             namespace, command = raw_command.split(":", 1)
         else:
-            namespace = raw_command
-            if args and self._ctx.plugin_manager.get_command(namespace, args[0].lower()):
-                command = args[0].lower()
-                args = args[1:]
-            else:
-                if self._ctx.plugin_manager.get_command(namespace, "menu"):
-                    command = "menu"
-                elif self._ctx.plugin_manager.get_command(namespace, "list"):
-                    command = "list"
+            # Smart Prefix Matching Fallback
+            prefix_map = [
+                ("package", "package_guard", "menu"),
+                ("cpu", "cpu_guard", "menu"),
+                ("process", "cpu_guard", "menu"),
+                ("service", "service", "list"),
+                ("docker", "docker", "list"),
+                ("system", "system", "status"),
+                ("alert", "alert", "list"),
+                ("schedule", "schedule", "list"),
+                ("user", "user", "list"),
+                ("audit", "audit", "list"),
+                ("ask", "ask", "menu"),
+                ("ai", "ask", "menu"),
+            ]
+            matched = False
+            for pfx, ns, cmd in prefix_map:
+                if raw_command.startswith(pfx):
+                    namespace, command = ns, cmd
+                    matched = True
+                    break
+            if not matched:
+                namespace = raw_command
+                if args and self._ctx.plugin_manager.get_command(namespace, args[0].lower()):
+                    command = args[0].lower()
+                    args = args[1:]
                 else:
-                    command = "status"
+                    if self._ctx.plugin_manager.get_command(namespace, "menu"):
+                        command = "menu"
+                    elif self._ctx.plugin_manager.get_command(namespace, "list"):
+                        command = "list"
+                    else:
+                        command = "status"
 
         registered = self._ctx.plugin_manager.get_command(namespace, command)
 
