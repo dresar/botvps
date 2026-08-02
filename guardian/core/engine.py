@@ -146,27 +146,30 @@ class GuardianEngine:
         await plugin_manager.discover_and_load(ctx)
         scheduler.start()
 
-        # Daftarkan perintah bot ke Telegram autocomplete menu (BotFather UI)
-        await bot_gateway.register_botfather_commands()
+        # 1. Async task: Daftarkan perintah bot ke Telegram autocomplete menu
+        asyncio.create_task(bot_gateway.register_botfather_commands())
 
         await event_bus.publish("system.startup_complete", {"version": "1.0.0"})
 
-        # Kirim notifikasi bot aktif ke admin
-        try:
-            admin_ids = await auth.get_all_alert_recipient_ids()
-            if admin_ids:
-                import socket
-                hostname = socket.gethostname()
-                from guardian.utils.keyboard_builder import build_main_menu_keyboard
-                msg = (
-                    f"🚀 <b>Serverinka Guardian Berhasil Diaktifkan!</b>\n\n"
-                    f"🖥️ Server: <code>{hostname}</code>\n"
-                    f"⚙️ Status: Online & Siap Digunakan!\n"
-                    f"🔌 Plugin: {len(plugin_manager.loaded_plugins)} plugin dimuat."
-                )
-                await bot_gateway.broadcast(admin_ids, msg, keyboard=build_main_menu_keyboard())
-        except Exception:
-            logger.warning("Gagal mengirim notifikasi startup ke admin.")
+        # 2. Async task: Kirim notifikasi bot aktif ke admin
+        async def _notify_admin_startup() -> None:
+            try:
+                admin_ids = await auth.get_all_alert_recipient_ids()
+                if admin_ids:
+                    import socket
+                    hostname = socket.gethostname()
+                    from guardian.utils.keyboard_builder import build_main_menu_keyboard
+                    msg = (
+                        f"🚀 <b>Serverinka Guardian Berhasil Diaktifkan!</b>\n\n"
+                        f"🖥️ Server: <code>{hostname}</code>\n"
+                        f"⚙️ Status: Online & Siap Digunakan!\n"
+                        f"🔌 Plugin: {len(plugin_manager.loaded_plugins)} plugin dimuat."
+                    )
+                    await bot_gateway.broadcast(admin_ids, msg, keyboard=build_main_menu_keyboard())
+            except Exception:
+                logger.warning("Gagal mengirim notifikasi startup ke admin.")
+
+        asyncio.create_task(_notify_admin_startup())
 
         self._register_signal_handlers()
 

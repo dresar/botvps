@@ -142,21 +142,29 @@ class PackageProtectionService(BaseService):
         found_binaries = []
         found_configs = []
 
-        # 0. Coba uninstall via npm & pip jika tersedia
-        if shutil.which("npm"):
-            for variant in pkg_variants:
+        # 0. Coba uninstall via npm & pip HANYA jika file/binary terdeteksi ada di sistem
+        for variant in pkg_variants:
+            has_files = (
+                shutil.which(variant) is not None
+                or (Path(home) / f".{variant}").exists()
+                or (Path("/root") / f".{variant}").exists()
+                or (Path(home) / ".config" / variant).exists()
+            )
+            if not has_files:
+                continue
+
+            if shutil.which("npm"):
                 try:
-                    res = await run_command(["npm", "uninstall", "-g", variant], timeout=15.0)
-                    if res.success and "uninstalled" in res.stdout.lower():
+                    res = await run_command(["npm", "uninstall", "-g", variant], timeout=10.0)
+                    if res.success and ("uninstalled" in res.stdout.lower() or "removed" in res.stdout.lower()):
                         found_configs.append(f"npm global package: {variant}")
                 except Exception:
                     pass
 
-        if shutil.which("pip") or shutil.which("pip3"):
-            pip_cmd = "pip3" if shutil.which("pip3") else "pip"
-            for variant in pkg_variants:
+            if shutil.which("pip") or shutil.which("pip3"):
+                pip_cmd = "pip3" if shutil.which("pip3") else "pip"
                 try:
-                    res = await run_command([pip_cmd, "uninstall", "-y", variant], timeout=15.0)
+                    res = await run_command([pip_cmd, "uninstall", "-y", variant], timeout=10.0)
                     if res.success and "uninstalled" in res.stdout.lower():
                         found_configs.append(f"pip package: {variant}")
                 except Exception:
