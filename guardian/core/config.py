@@ -18,8 +18,8 @@ class GuardianSettings(BaseSettings):
 
     # ---- TELEGRAM ----
     telegram_bot_token: str = Field(..., description="Token bot dari @BotFather")
-    telegram_admin_user_ids: list[int] = Field(
-        ..., description="Telegram User ID super admin"
+    telegram_admin_user_ids: str | list[int] = Field(
+        default_factory=list, description="Telegram User ID super admin"
     )
     telegram_mode: str = Field(default="polling", description="polling atau webhook")
     telegram_webhook_url: str = Field(default="", description="URL webhook")
@@ -77,7 +77,7 @@ class GuardianSettings(BaseSettings):
     )
 
     # ---- PLUGINS ----
-    disabled_plugins: list[str] = Field(
+    disabled_plugins: str | list[str] = Field(
         default_factory=list, description="Plugin yang dinonaktifkan"
     )
 
