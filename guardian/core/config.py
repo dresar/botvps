@@ -10,7 +10,7 @@ class GuardianSettings(BaseSettings):
     """Konfigurasi utama Serverinka Guardian dari environment variables."""
 
     model_config = SettingsConfigDict(
-        env_file=".env",
+        env_file=(".env", "/etc/serverinka/guardian.env"),
         env_file_encoding="utf-8",
         case_sensitive=False,
         extra="ignore",
@@ -117,21 +117,29 @@ class GuardianSettings(BaseSettings):
 
     @field_validator("telegram_admin_user_ids", mode="before")
     @classmethod
-    def parse_admin_ids(cls, v: str | list[int]) -> list[int]:
+    def parse_admin_ids(cls, v: object) -> list[int]:
         """Parse admin IDs dari string comma-separated atau list."""
+        if v is None or v == "":
+            return []
         if isinstance(v, str):
             return [int(uid.strip()) for uid in v.split(",") if uid.strip()]
-        return v
+        if isinstance(v, list):
+            return [int(uid) for uid in v]
+        return []
 
     @field_validator("disabled_plugins", mode="before")
     @classmethod
-    def parse_disabled_plugins(cls, v: str | list[str]) -> list[str]:
+    def parse_disabled_plugins(cls, v: object) -> list[str]:
         """Parse disabled plugins dari string comma-separated atau list."""
+        if v is None or v == "":
+            return []
         if isinstance(v, str):
             if not v.strip():
                 return []
             return [p.strip() for p in v.split(",") if p.strip()]
-        return v
+        if isinstance(v, list):
+            return [str(p).strip() for p in v if str(p).strip()]
+        return []
 
 
 @lru_cache(maxsize=1)
