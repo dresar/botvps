@@ -33,7 +33,7 @@ log_info "Memulai instalasi Serverinka Guardian..."
 # 1. Update paket & install dependencies dasar
 log_info "Mengupdate paket sistem..."
 apt-get update -qq
-apt-get install -y -qq python3 python3-venv curl git systemd journalctl
+apt-get install -y -qq python3 python3-venv curl git systemd
 
 # 2. Install uv (package manager)
 if ! command -v uv &> /dev/null; then
