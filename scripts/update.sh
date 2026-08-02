@@ -20,6 +20,7 @@ systemctl stop serverinka-guardian.service || true
 # 2. Pull perubahan git terbaru
 echo "[INFO] Memilih update git..."
 cd "$INSTALL_DIR"
+git config --global --add safe.directory "$INSTALL_DIR" 2>/dev/null || true
 git pull origin main
 
 # 3. Update dependensi via uv

@@ -65,6 +65,7 @@ if [ "$CURRENT_DIR" != "$TARGET_DIR" ]; then
     cp -r . "$INSTALL_DIR/"
 fi
 chown -R serverinka:serverinka "$INSTALL_DIR" "$CONFIG_DIR" "$VAR_DIR" "$LOG_DIR"
+git config --global --add safe.directory "$INSTALL_DIR" 2>/dev/null || true
 
 # 5. Modifikasi Sudoers
 if [ -f "$INSTALL_DIR/scripts/sudoers.d/serverinka" ]; then
