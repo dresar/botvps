@@ -55,6 +55,20 @@ class AIAssistantHandlers:
     async def _handle_chat_query(self, ctx: CommandContext) -> None:
         """Proses percakapan utama dengan AI."""
         user_prompt = " ".join(ctx.args)
+        if not user_prompt:
+            raw = ctx.raw_text.strip()
+            for prefix in ("/ask", "/ai"):
+                if raw.lower().startswith(prefix):
+                    user_prompt = raw[len(prefix):].strip()
+                    break
+
+        if not user_prompt:
+            await self._show_help(ctx)
+            return
+
+        # Kirim indikator typing ke Telegram
+        await ctx.bot_gateway.send_chat_action(ctx.chat_id, "typing")
+
         loading_msg = await ctx.bot_gateway.send_message(
             ctx.chat_id, "🧠 <i>Serverinka AI sedang berpikir & mengingat konteks...</i>"
         )

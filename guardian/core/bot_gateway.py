@@ -131,9 +131,18 @@ class BotGateway:
                 reply_markup=keyboard,
                 parse_mode=parse_mode,
             )
-        except TelegramError as e:
+        except Exception as e:
             logger.error("Gagal mengirim pesan.", chat_id=chat_id, error=str(e))
             return None
+
+    async def send_chat_action(self, chat_id: int, action: str = "typing") -> bool:
+        """Kirim indikator status aktivitas Telegram (misal: typing / mengetik)."""
+        try:
+            await self._bot.send_chat_action(chat_id=chat_id, action=action)
+            return True
+        except Exception as e:
+            logger.debug("Gagal mengirim chat action.", chat_id=chat_id, error=str(e))
+            return False
 
     async def send_long_message(
         self,
@@ -493,6 +502,8 @@ class BotGateway:
             "help": ("nav", "help"),
             "status": ("system", "status"),
             "cancel": ("nav", "cancel"),
+            "ask": ("ask", "menu"),
+            "ai": ("ai", "ask"),
         }
 
         if raw_command in SHORTCUTS:
@@ -500,13 +511,17 @@ class BotGateway:
         elif ":" in raw_command:
             namespace, command = raw_command.split(":", 1)
         else:
-            if args:
-                namespace = raw_command
+            namespace = raw_command
+            if args and self._ctx.plugin_manager.get_command(namespace, args[0].lower()):
                 command = args[0].lower()
                 args = args[1:]
             else:
-                namespace = raw_command
-                command = "menu"
+                if self._ctx.plugin_manager.get_command(namespace, "menu"):
+                    command = "menu"
+                elif self._ctx.plugin_manager.get_command(namespace, "list"):
+                    command = "list"
+                else:
+                    command = "status"
 
         registered = self._ctx.plugin_manager.get_command(namespace, command)
 
