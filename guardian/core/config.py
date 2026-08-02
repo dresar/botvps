@@ -131,17 +131,6 @@ class GuardianSettings(BaseSettings):
         default=30, description="Timeout sesi terminal setelah idle (menit)"
     )
 
-    # ---- WEB PANEL (Telegram Mini App) ----
-    webpanel_enabled: bool = Field(default=True, description="Aktifkan Web Panel API")
-    webpanel_host: str = Field(default="0.0.0.0", description="Host server Web Panel")
-    webpanel_port: int = Field(default=8080, description="Port server Web Panel")
-    webpanel_url: str = Field(
-        default="", description="URL publik Web Panel (contoh: https://vps.example.com:8080)"
-    )
-    webpanel_cors_origins: str = Field(
-        default="*", description="CORS origins yang diizinkan"
-    )
-
     # ---- ADVANCED ----
 
     connect_timeout: float = Field(default=10.0, description="Timeout koneksi")

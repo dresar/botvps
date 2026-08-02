@@ -336,7 +336,6 @@ class BotGateway:
         commands = [
             BotCommand("start", "🏠 Menu Utama & Dashboard"),
             BotCommand("status", "📊 Status Real-time CPU, RAM & Disk"),
-            BotCommand("panel", "🌐 Buka Web Panel (Telegram Mini App)"),
             BotCommand("run", "💻 Eksekusi Perintah Shell Linux"),
             BotCommand("terminal", "🖥️ Menu Terminal & Sesi Shell"),
             BotCommand("history", "📋 Riwayat Perintah Terminal"),
@@ -609,7 +608,6 @@ class BotGateway:
             "nav:audit_list": ("audit", "list"),
             "nav:audit": ("audit", "list"),
             "nav:settings": ("system", "settings"),
-            "webpanel:open": ("webpanel", "open"),
         }
 
         if data in NAV_COMMAND_MAP:
@@ -765,9 +763,6 @@ class BotGateway:
             "shell": ("terminal", "menu"),
             "history": ("terminal", "history"),
             "cmd": ("terminal", "run"),
-            # Web Panel shortcut
-            "panel": ("webpanel", "open"),
-            "webpanel": ("webpanel", "open"),
         }
 
         if raw_command in SHORTCUTS:
