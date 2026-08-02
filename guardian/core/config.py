@@ -73,6 +73,12 @@ class GuardianSettings(BaseSettings):
         default=90, description="Retensi audit log dalam hari"
     )
 
+    # ---- EXPANDED ALERTS ----
+    alert_ram_threshold: float = Field(default=85.0, description="Batas ambang peringatan RAM (%)")
+    alert_disk_threshold: float = Field(default=90.0, description="Batas ambang peringatan Disk (%)")
+    alert_cpu_threshold: float = Field(default=80.0, description="Batas ambang peringatan CPU (%)")
+    alert_service_check: bool = Field(default=True, description="Peringatan otomatis service systemd yang failed")
+
     # ---- CPU GUARD ----
     cpu_usage_limit: float = Field(default=80.0, description="Batas ambang persentase CPU (%)")
     cpu_check_interval: int = Field(default=10, description="Interval pengecekan CPU (detik)")

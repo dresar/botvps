@@ -33,31 +33,26 @@ class SchedulerUIPlugin(BasePlugin):
         return []
 
     async def setup(self, ctx: "ApplicationContext") -> None:
-        """Daftarkan command scheduler."""
         from guardian.plugins.scheduler_ui.handlers import SchedulerUIHandlers
-        h = SchedulerUIHandlers()
+        from guardian.plugins.scheduler_ui.service import AISchedulerService
 
-        ctx.plugin_manager.register_command(
-            namespace="schedule",
-            command="list",
-            handler=h.handle_list,
-            permissions=["schedule:read"],
-            description="Daftar scheduled jobs",
-        )
-        ctx.plugin_manager.register_command(
-            namespace="schedule",
-            command="pause",
-            handler=h.handle_pause,
-            permissions=["schedule:write"],
-            description="Pause scheduled job",
-        )
-        ctx.plugin_manager.register_command(
-            namespace="schedule",
-            command="resume",
-            handler=h.handle_resume,
-            permissions=["schedule:write"],
-            description="Resume scheduled job",
-        )
+        self._ai_sched_service = AISchedulerService(ctx)
+        await self._ai_sched_service.register_tasks_to_engine()
+
+        h = SchedulerUIHandlers(self._ai_sched_service)
+
+        for ns in ("schedule", "remind", "reminder"):
+            for cmd in ("list", "show", "menu", "add", "del", "delete", "pause", "resume"):
+                try:
+                    ctx.plugin_manager.register_command(
+                        namespace=ns,
+                        command=cmd,
+                        handler=h.handle_schedule_router,
+                        permissions=["schedule:read"],
+                        description="Manajemen scheduled jobs & reminders",
+                    )
+                except Exception:
+                    pass
 
         logger.info("SchedulerUIPlugin siap.")
 

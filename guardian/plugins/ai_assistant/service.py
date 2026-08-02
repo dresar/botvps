@@ -105,8 +105,9 @@ class AIAssistantService(BaseService):
 
     async def ask_ai(self, telegram_id: int, user_prompt: str) -> str:
         """Kirim pertanyaan pengguna ke AI dengan memori & konteks histori percakapan."""
-        # 1. Otomatis deteksi jika user memberikan instruksi/memori baru
+        # 1. Otomatis deteksi jika user memberikan instruksi/memori baru atau jadwal pengingat
         await self._auto_detect_and_save_memory(telegram_id, user_prompt)
+        await self._auto_detect_and_schedule_task(telegram_id, user_prompt)
 
         # 2. Ambil histori percakapan (Short-Term Memory)
         history = await self.repo.get_recent_chat_history(telegram_id, limit=8)
@@ -223,6 +224,36 @@ class AIAssistantService(BaseService):
                 await self.repo.add_memory(telegram_id, content, memory_type="rule")
                 logger.info("Memori jangka panjang baru otomatis dicatat.", telegram_id=telegram_id, content=content)
                 break
+
+    async def _auto_detect_and_schedule_task(self, telegram_id: int, prompt: str) -> None:
+        """Otomatis deteksi jika pesan pengguna mengandung permintaan penjadwalan/pengingat."""
+        p_lower = prompt.lower()
+        if any(w in p_lower for w in ("ingatkan", "jadwalkan", "remind", "pengingat")):
+            try:
+                from guardian.plugins.scheduler_ui.service import AISchedulerService
+                sched_service = AISchedulerService(self._ctx)
+
+                interval_sec = 600
+                if "setiap menit" in p_lower or "tiap menit" in p_lower:
+                    interval_sec = 60
+                elif "5 menit" in p_lower:
+                    interval_sec = 300
+                elif "10 menit" in p_lower:
+                    interval_sec = 600
+                elif "30 menit" in p_lower:
+                    interval_sec = 1800
+                elif "setiap jam" in p_lower or "tiap jam" in p_lower:
+                    interval_sec = 3600
+
+                await sched_service.add_schedule(
+                    telegram_id=telegram_id,
+                    task_type="interval",
+                    message=prompt.strip(),
+                    interval_seconds=interval_sec,
+                )
+                logger.info("Jadwal pengingat AI otomatis terdeteksi & dibuat.", telegram_id=telegram_id, prompt=prompt)
+            except Exception as e:
+                logger.debug("Gagal auto-detect schedule task.", error=str(e))
 
     def _format_markdown_to_telegram_html(self, text: str) -> str:
         """Konversi format Markdown standar dari AI menjadi HTML yang aman untuk Telegram."""

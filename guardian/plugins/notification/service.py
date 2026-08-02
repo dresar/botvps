@@ -65,6 +65,9 @@ class NotificationService(BaseService):
 
             hostname = socket.gethostname()
 
+            # Pemeriksaan Peringatan Otomatis Kesehatan VPS (RAM, Disk, CPU, Failed Services)
+            await self._check_vps_health_warnings(current_values, hostname)
+
             for alert in alerts:
                 current = current_values.get(alert.metric_name)
                 if current is None:
@@ -117,6 +120,80 @@ class NotificationService(BaseService):
             sent=result.sent_count,
             failed=result.failed_count,
         )
+
+    async def _check_vps_health_warnings(
+        self, current_values: dict[str, float], hostname: str
+    ) -> None:
+        """Pemeriksaan otomatis peringatan kesehatan VPS (RAM, Disk, CPU, Failed Services)."""
+        settings = self._ctx.settings
+        recipient_ids = await self._ctx.auth.get_all_alert_recipient_ids()
+        if not recipient_ids:
+            return
+
+        now = datetime.utcnow()
+        if not hasattr(self, "_last_warning_times"):
+            self._last_warning_times: dict[str, datetime] = {}
+
+        cooldown = timedelta(minutes=15)
+
+        # 1. RAM Warning (> alert_ram_threshold %)
+        ram_val = current_values.get("ram_percent", 0.0)
+        if ram_val > settings.alert_ram_threshold:
+            if "ram" not in self._last_warning_times or now - self._last_warning_times["ram"] > cooldown:
+                self._last_warning_times["ram"] = now
+                msg = (
+                    f"🚨 <b>PERINGATAN KESEHATAN VPS — RAM TINGGI</b>\n\n"
+                    f"🖥️ Server: <code>{hostname}</code>\n"
+                    f"⚠️ RAM Usage: <b>{ram_val:.1f}%</b> (Batas: {settings.alert_ram_threshold}%)\n\n"
+                    f"<i>Saran: Periksa proses yang mengonsumsi memori besar dengan menu CPU Guard atau /cpu.</i>"
+                )
+                await self._ctx.bot.broadcast(recipient_ids, msg)
+
+        # 2. Disk Warning (> alert_disk_threshold %)
+        disk_val = current_values.get("disk_percent", 0.0)
+        if disk_val > settings.alert_disk_threshold:
+            if "disk" not in self._last_warning_times or now - self._last_warning_times["disk"] > cooldown:
+                self._last_warning_times["disk"] = now
+                msg = (
+                    f"💾 <b>PERINGATAN KESEHATAN VPS — DISK PENUH</b>\n\n"
+                    f"🖥️ Server: <code>{hostname}</code>\n"
+                    f"⚠️ Disk Usage: <b>{disk_val:.1f}%</b> (Batas: {settings.alert_disk_threshold}%)\n\n"
+                    f"<i>Saran: Bersihkan log atau file sampah VPS sebelum penyimpanan penuh!</i>"
+                )
+                await self._ctx.bot.broadcast(recipient_ids, msg)
+
+        # 3. CPU Warning (> alert_cpu_threshold %)
+        cpu_val = current_values.get("cpu_percent", 0.0)
+        if cpu_val > settings.alert_cpu_threshold:
+            if "cpu" not in self._last_warning_times or now - self._last_warning_times["cpu"] > cooldown:
+                self._last_warning_times["cpu"] = now
+                msg = (
+                    f"🔥 <b>PERINGATAN KESEHATAN VPS — CPU SPIKE</b>\n\n"
+                    f"🖥️ Server: <code>{hostname}</code>\n"
+                    f"⚠️ CPU Usage: <b>{cpu_val:.1f}%</b> (Batas: {settings.alert_cpu_threshold}%)\n\n"
+                    f"<i>Saran: Gunakan <code>/cpu top</code> untuk melihat proses teratas.</i>"
+                )
+                await self._ctx.bot.broadcast(recipient_ids, msg)
+
+        # 4. Failed Services Check
+        if settings.alert_service_check:
+            if "service" not in self._last_warning_times or now - self._last_warning_times["service"] > cooldown:
+                try:
+                    from guardian.plugins.service_manager.service import ServiceManagerService
+                    svc_mgr = ServiceManagerService(self._ctx)
+                    failed_services = await svc_mgr.get_failed_services()
+                    if failed_services:
+                        self._last_warning_times["service"] = now
+                        failed_names = ", ".join([f"<code>{s.name}</code>" for s in failed_services[:5]])
+                        msg = (
+                            f"⚙️ <b>PERINGATAN KESEHATAN VPS — SERVICE CRASHED/FAILED</b>\n\n"
+                            f"🖥️ Server: <code>{hostname}</code>\n"
+                            f"🔴 Service Bermasalah: {failed_names}\n\n"
+                            f"<i>Gunakan menu /service untuk merestart service yang bermasalah.</i>"
+                        )
+                        await self._ctx.bot.broadcast(recipient_ids, msg)
+                except Exception as e:
+                    logger.debug("Gagal memeriksa failed services.", error=str(e))
 
     async def health_check(self) -> ServiceHealth:
         """Cek kesehatan notification service."""
