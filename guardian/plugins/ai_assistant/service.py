@@ -105,6 +105,11 @@ class AIAssistantService(BaseService):
 
     async def ask_ai(self, telegram_id: int, user_prompt: str) -> str:
         """Kirim pertanyaan pengguna ke AI dengan memori & konteks histori percakapan."""
+        # 0. Otomatis deteksi jika pesan berisi API key (pesan terpotong Telegram)
+        auto_imported = await self._auto_detect_and_import_keys(user_prompt)
+        if auto_imported:
+            return auto_imported
+
         # 1. Otomatis deteksi jika user memberikan instruksi/memori baru atau jadwal pengingat
         await self._auto_detect_and_save_memory(telegram_id, user_prompt)
         await self._auto_detect_and_schedule_task(telegram_id, user_prompt)
@@ -254,6 +259,35 @@ class AIAssistantService(BaseService):
                 logger.info("Jadwal pengingat AI otomatis terdeteksi & dibuat.", telegram_id=telegram_id, prompt=prompt)
             except Exception as e:
                 logger.debug("Gagal auto-detect schedule task.", error=str(e))
+
+    async def _auto_detect_and_import_keys(self, user_prompt: str) -> str | None:
+        """Otomatis deteksi jika pesan pengguna adalah tumpukan API Key (misal dari terpotongnya Telegram message)."""
+        lines = [l.strip() for l in user_prompt.splitlines() if l.strip()]
+        detected_keys = []
+        for line in lines:
+            clean_line = line.split("#")[0].split("//")[0].strip()
+            tokens = clean_line.split()
+            for t in tokens:
+                if len(t) >= 15 and not t.startswith("/"):
+                    detected_keys.append(t)
+
+        if len(detected_keys) >= 1 and any(k.startswith(("AIzaSy", "AQ.", "gsk_")) for k in detected_keys):
+            gemini_keys = [k for k in detected_keys if not k.startswith("gsk_")]
+            groq_keys = [k for k in detected_keys if k.startswith("gsk_")]
+
+            added_g, dup_g = await self.repo.add_api_keys(gemini_keys) if gemini_keys else (0, 0)
+            added_q, dup_q = await self.repo.add_groq_keys(groq_keys) if groq_keys else (0, 0)
+
+            total_added = added_g + added_q
+            total_dup = dup_g + dup_q
+            return (
+                f"✅ <b>Terdeteksi Impor API Key ke SQLite!</b>\n\n"
+                f"📥 <b>Diterima:</b> <code>{len(detected_keys)} Key</code>\n"
+                f"➕ <b>Ditambahkan:</b> <code>{total_added} Key Baru</code>\n"
+                f"⚠️ <b>Duplikat/Diabaikan:</b> <code>{total_dup} Key</code>\n\n"
+                f"<i>Seluruh Key telah tersimpan aman di database SQLite VPS Anda.</i>"
+            )
+        return None
 
     def _format_markdown_to_telegram_html(self, text: str) -> str:
         """Konversi format Markdown standar dari AI menjadi HTML yang aman untuk Telegram."""

@@ -89,11 +89,11 @@ class AIAssistantHandlers:
             await ctx.bot_gateway.send_message(
                 ctx.chat_id,
                 "❌ <b>Format Perintah Skill:</b>\n"
-                "• <code>/skill add <Nama> | <Deskripsi> | <Instruksi></code>\n"
+                "• <code>/skill add [Nama] | [Deskripsi] | [Instruksi]</code>\n"
                 "• <code>/skill list</code>\n"
-                "• <code>/skill edit <ID> | <Instruksi Baru></code>\n"
-                "• <code>/skill del <ID></code>\n"
-                "• <code>/skill toggle <ID></code>",
+                "• <code>/skill edit [ID] | [Instruksi Baru]</code>\n"
+                "• <code>/skill del [ID]</code>\n"
+                "• <code>/skill toggle [ID]</code>",
             )
 
     async def _show_help(self, ctx: CommandContext) -> None:
@@ -115,10 +115,10 @@ class AIAssistantHandlers:
             "• <code>/ask [pertanyaan]</code> — Tanya AI dengan memori & konteks VPS real-time\n"
             "• Ketik chat biasa (misal: <code>halo</code>) — Langsung dijawab oleh AI!\n\n"
             "🛠️ <b>Hermes Dynamic Skill Engine:</b>\n"
-            "• <code>/skill add <Nama> | <Deskripsi> | <Instruksi></code> — Buat skill baru\n"
+            "• <code>/skill add [Nama] | [Deskripsi] | [Instruksi]</code> — Buat skill baru\n"
             "• <code>/skill list</code> — Lihat daftar seluruh skill AI\n"
-            "• <code>/skill edit <ID> | <Instruksi></code> — Edit instruksi skill\n"
-            "• <code>/skill del <ID></code> — Hapus skill\n\n"
+            "• <code>/skill edit [ID] | [Instruksi]</code> — Edit instruksi skill\n"
+            "• <code>/skill del [ID]</code> — Hapus skill\n\n"
             "🔑 <b>Manajemen Token & Key Pool (SQLite):</b>\n"
             "• <code>/ai addkey [key1] [key2] ...</code> — Tambah Gemini API Key\n"
             "• <code>/ai addgroq [key1] [key2] ...</code> — Tambah Groq API Key (Backup)\n"
