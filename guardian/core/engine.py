@@ -142,6 +142,9 @@ class GuardianEngine:
         await plugin_manager.discover_and_load(ctx)
         scheduler.start()
 
+        # Daftarkan perintah bot ke Telegram autocomplete menu (BotFather UI)
+        await bot_gateway.register_botfather_commands()
+
         await event_bus.publish("system.startup_complete", {"version": "1.0.0"})
 
         # Kirim notifikasi bot aktif ke admin

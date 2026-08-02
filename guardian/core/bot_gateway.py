@@ -41,6 +41,28 @@ class CommandContext:
     bot_gateway: "BotGateway"
     app_ctx: "ApplicationContext"
 
+    async def respond(
+        self,
+        text: str,
+        keyboard: InlineKeyboardMarkup | None = None,
+        parse_mode: str = ParseMode.HTML,
+    ) -> Message | None:
+        """Kirim pesan baru jika diketik manual, atau EDIT pesan yang ada jika ditekan via tombol inline."""
+        if self.update and self.update.callback_query and self.message_id:
+            return await self.bot_gateway.edit_message(
+                chat_id=self.chat_id,
+                message_id=self.message_id,
+                text=text,
+                keyboard=keyboard,
+                parse_mode=parse_mode,
+            )
+        return await self.bot_gateway.send_message(
+            chat_id=self.chat_id,
+            text=text,
+            keyboard=keyboard,
+            parse_mode=parse_mode,
+        )
+
 
 @dataclass
 class CallbackContext:
@@ -262,6 +284,29 @@ class BotGateway:
             failed_user_ids=failed_ids,
         )
 
+    async def register_botfather_commands(self) -> None:
+        """Daftarkan seluruh perintah bot ke Telegram BotFather autocomplete menu."""
+        from telegram import BotCommand
+
+        commands = [
+            BotCommand("start", "🏠 Dashboard Menu Utama"),
+            BotCommand("status", "📊 Cek resource VPS (CPU, RAM, Disk)"),
+            BotCommand("ask", "🧠 AI Assistant Gemini (Konteks VPS & Memory)"),
+            BotCommand("cpu_guard", "🛡️ Dashboard & Kontrol Auto Process CPU Guardian"),
+            BotCommand("package_guard", "📦 Dashboard & Kontrol Package Protection"),
+            BotCommand("service", "⚙️ Manajemen Layanan Systemd VPS"),
+            BotCommand("docker", "🐳 Manajemen Kontainer Docker"),
+            BotCommand("alert", "🔔 Pengaturan Notifikasi Alert"),
+            BotCommand("schedule", "📅 Pengaturan Jadwal Task Otomatis"),
+            BotCommand("user", "👥 Manajemen Pengguna & Hak Akses"),
+            BotCommand("audit", "📋 Lihat Log Audit Aktivitas"),
+        ]
+        try:
+            await self._bot.set_my_commands(commands)
+            logger.info("Perintah bot berhasil didaftarkan ke Telegram autocomplete menu.")
+        except Exception as e:
+            logger.warning("Gagal menyinkronkan set_my_commands ke Telegram API.", error=str(e))
+
     async def handle_update(self, update: Update) -> None:
         """Proses update dari Telegram melalui middleware chain.
 
@@ -358,9 +403,12 @@ class BotGateway:
             "nav:system_status": ("system", "status"),
             "nav:service_list": ("service", "list"),
             "nav:docker_list": ("docker", "list"),
+            "nav:cpu_guard_status": ("cpu_guard", "menu"),
+            "nav:package_guard_status": ("package_guard", "menu"),
             "nav:alert_list": ("alert", "list"),
             "nav:schedule_list": ("schedule", "list"),
             "nav:user_list": ("user", "list"),
+            "nav:ai_help": ("ask", "menu"),
             "nav:audit_list": ("audit", "list"),
             "nav:settings": ("system", "status"),
         }

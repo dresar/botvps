@@ -34,27 +34,35 @@ def refresh_row(refresh_data: str) -> list[InlineKeyboardButton]:
 
 
 def build_main_menu_keyboard() -> InlineKeyboardMarkup:
-    """Buat keyboard untuk menu utama.
+    """Buat keyboard untuk menu utama yang lengkap.
 
     Returns:
         InlineKeyboardMarkup menu utama.
     """
     keyboard = [
         [
-            InlineKeyboardButton("📊 Status", callback_data="nav:system_status"),
-            InlineKeyboardButton("⚙️ Layanan", callback_data="nav:service_list"),
+            InlineKeyboardButton("📊 Status System", callback_data="nav:system_status"),
+            InlineKeyboardButton("⚙️ Layanan Systemd", callback_data="nav:service_list"),
         ],
         [
-            InlineKeyboardButton("🐳 Docker", callback_data="nav:docker_list"),
-            InlineKeyboardButton("🔔 Alert", callback_data="nav:alert_list"),
+            InlineKeyboardButton("🐳 Docker Containers", callback_data="nav:docker_list"),
+            InlineKeyboardButton("🛡️ CPU Guard", callback_data="nav:cpu_guard_status"),
         ],
         [
-            InlineKeyboardButton("📅 Jadwal", callback_data="nav:schedule_list"),
-            InlineKeyboardButton("👥 Pengguna", callback_data="nav:user_list"),
+            InlineKeyboardButton("📦 Package Protection", callback_data="nav:package_guard_status"),
+            InlineKeyboardButton("🔔 Alert Notifikasi", callback_data="nav:alert_list"),
         ],
         [
+            InlineKeyboardButton("📅 Jadwal Task", callback_data="nav:schedule_list"),
+            InlineKeyboardButton("👥 Pengguna & Akses", callback_data="nav:user_list"),
+        ],
+        [
+            InlineKeyboardButton("🧠 AI Assistant", callback_data="nav:ai_help"),
             InlineKeyboardButton("📋 Audit Log", callback_data="nav:audit_list"),
-            InlineKeyboardButton("⚙️ Pengaturan", callback_data="nav:settings"),
+        ],
+        [
+            InlineKeyboardButton("⚙️ Pengaturan System", callback_data="nav:settings"),
+            InlineKeyboardButton("🔄 Refresh Menu", callback_data="nav:main_menu"),
         ],
     ]
     return InlineKeyboardMarkup(keyboard)
