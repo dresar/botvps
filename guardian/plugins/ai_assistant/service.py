@@ -274,6 +274,17 @@ class AIAssistantService(BaseService):
                 logger.info("Memori jangka panjang baru otomatis dicatat.", telegram_id=telegram_id, content=content)
                 break
 
+        if "catat" in p_lower and "skill" in p_lower:
+            try:
+                await self.repo.add_skill(
+                    skill_name="Instruksi Kustom User",
+                    description="Skill Otomatis dari Chat User",
+                    instructions=prompt.strip(),
+                )
+                logger.info("Hermes Dynamic Skill baru otomatis dibuat dari chat user.", telegram_id=telegram_id, prompt=prompt)
+            except Exception as e:
+                logger.debug("Gagal auto-add skill dari chat.", error=str(e))
+
     async def _auto_detect_and_schedule_task(self, telegram_id: int, prompt: str) -> None:
         """Otomatis deteksi jika pesan pengguna mengandung permintaan penjadwalan/pengingat."""
         p_lower = prompt.lower()

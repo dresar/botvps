@@ -72,9 +72,10 @@ class AIService:
             )
 
         target_provider = (provider or self._settings.ai_provider).lower()
-        target_model = model or (
-            "llama-3.3-70b-versatile" if target_provider == "groq" else self._settings.ai_model
-        )
+        default_model = "llama-3.3-70b-versatile" if target_provider == "groq" else "gemini-1.5-flash"
+        target_model = model or self._settings.ai_model or default_model
+        if target_model in ("gemini-2.5-flash", "gemini-2.5-flash-latest", "gemini-2.5"):
+            target_model = "gemini-1.5-flash"
 
         if target_provider == "gemini":
             endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{target_model}:generateContent?key={target_key}"
@@ -250,3 +251,25 @@ class AIService:
                     raise AIProviderError("Response AI tidak valid.")
             except Exception as e:
                 raise AIProviderError(f"Error AI Provider {target_provider}: {e}") from e
+
+    async def generate_voice_response(self, text: str, lang: str = "id") -> bytes:
+        """Sintesis teks respon AI menjadi audio suara Voice Note Telegram (gTTS)."""
+        import asyncio
+        import io
+        import re
+        from gtts import gTTS
+
+        # Bersihkan tag HTML
+        clean_text = re.sub(r"<[^>]+>", "", text).strip()
+        clean_text = clean_text[:800]
+        if not clean_text:
+            clean_text = "Proses selesai."
+
+        def _synth() -> bytes:
+            tts = gTTS(text=clean_text, lang=lang)
+            fp = io.BytesIO()
+            tts.write_to_fp(fp)
+            fp.seek(0)
+            return fp.read()
+
+        return await asyncio.to_thread(_synth)

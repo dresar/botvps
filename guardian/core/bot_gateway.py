@@ -325,7 +325,7 @@ class BotGateway:
         """
         if update.message and update.message.text:
             await self._handle_message(update)
-        elif update.message and (update.message.photo or update.message.document):
+        elif update.message and (update.message.photo or update.message.document or update.message.voice or update.message.audio):
             await self._handle_media_message(update)
         elif update.callback_query:
             await self._handle_callback(update)
@@ -381,14 +381,14 @@ class BotGateway:
         await self._route_command(update, user, chat_id, text)
 
     async def _handle_media_message(self, update: Update) -> None:
-        """Handle media masuk (Foto / Dokumen) untuk Multimodal AI Analysis."""
+        """Handle media masuk (Foto / Dokumen / Voice Note) untuk Multimodal AI Analysis."""
         message = update.message
         if not message or not message.from_user:
             return
 
         telegram_user = message.from_user
         chat_id = message.chat_id
-        caption = message.caption or "Tolong analisis foto/dokumen ini secara detail dan berikan solusinya."
+        caption = message.caption or "Tolong analisis pesan audio/foto/dokumen ini secara detail dan berikan solusinya."
 
         auth_result = await self._ctx.auth.authenticate(
             telegram_id=telegram_user.id,
@@ -401,11 +401,12 @@ class BotGateway:
 
         user = auth_result.user
         await self.send_chat_action(chat_id, "typing")
-        status_msg = await self.send_message(chat_id, "🖼️ <b>Menganalisis foto/dokumen dengan Multimodal AI...</b>")
+        status_msg = await self.send_message(chat_id, "🎙️ <b>Menganalisis media/pesan suara dengan Multimodal AI...</b>")
 
         try:
             media_bytes = None
             mime_type = "image/jpeg"
+            is_voice = False
 
             if message.photo:
                 photo_file = await message.photo[-1].get_file()
@@ -415,9 +416,15 @@ class BotGateway:
                 doc_file = await message.document.get_file()
                 media_bytes = await doc_file.download_as_bytearray()
                 mime_type = message.document.mime_type or "application/octet-stream"
+            elif message.voice or message.audio:
+                is_voice = True
+                voice_obj = message.voice or message.audio
+                voice_file = await voice_obj.get_file()
+                media_bytes = await voice_file.download_as_bytearray()
+                mime_type = getattr(voice_obj, "mime_type", "audio/ogg") or "audio/ogg"
 
             if not media_bytes:
-                await self.send_message(chat_id, "❌ Gagal mengunduh file media.")
+                await self.send_message(chat_id, "❌ Gagal mengunduh file media/audio.")
                 return
 
             from guardian.plugins.ai_assistant.service import AIAssistantService
@@ -434,6 +441,21 @@ class BotGateway:
                 await self.edit_message_text(chat_id, status_msg.message_id, response_html)
             else:
                 await self.send_message(chat_id, response_html)
+
+            # Jika input berupa Voice Note, kirim balasan berupa Voice Note suara (TTS)
+            if is_voice:
+                try:
+                    await self.send_chat_action(chat_id, "record_voice")
+                    voice_audio_bytes = await ai_service.ai_client.generate_voice_response(response_html)
+                    if voice_audio_bytes:
+                        await self._bot.send_voice(
+                            chat_id=chat_id,
+                            voice=voice_audio_bytes,
+                            caption="🎙️ <b>Balasan Pesan Suara AI Serverinka</b>",
+                            parse_mode="HTML",
+                        )
+                except Exception as ve:
+                    logger.warning("Gagal menyintesis voice response TTS.", error=str(ve))
 
         except Exception as e:
             logger.exception("Gagal memproses media Multimodal AI.")
