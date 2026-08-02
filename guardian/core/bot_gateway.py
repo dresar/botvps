@@ -432,7 +432,7 @@ class BotGateway:
             "nav:ask": ("ask", "menu"),
             "nav:audit_list": ("audit", "list"),
             "nav:audit": ("audit", "list"),
-            "nav:settings": ("system", "status"),
+            "nav:settings": ("system", "settings"),
         }
 
         if data in NAV_COMMAND_MAP:

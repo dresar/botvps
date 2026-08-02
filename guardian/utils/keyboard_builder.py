@@ -185,17 +185,48 @@ def build_pagination_keyboard(
     return InlineKeyboardMarkup(rows)
 
 
+def build_sub_dashboard_keyboard(
+    extra_buttons: list[list[InlineKeyboardButton]] | None = None,
+) -> InlineKeyboardMarkup:
+    """Buat keyboard navigasi seragam untuk seluruh sub-dashboard.
+
+    Menampilkan tombol aksi internal sub-dashboard + tombol pintas navigasi langsung ke dashboard lain.
+    """
+    rows: list[list[InlineKeyboardButton]] = []
+    if extra_buttons:
+        rows.extend(extra_buttons)
+
+    quick_nav = [
+        [
+            InlineKeyboardButton("📊 Status", callback_data="nav:system_status"),
+            InlineKeyboardButton("🛡️ CPU Guard", callback_data="nav:cpu_guard_status"),
+            InlineKeyboardButton("📦 Package", callback_data="nav:package_guard_status"),
+        ],
+        [
+            InlineKeyboardButton("⚙️ Layanan", callback_data="nav:service_list"),
+            InlineKeyboardButton("🐳 Docker", callback_data="nav:docker_list"),
+            InlineKeyboardButton("🧠 AI Chat", callback_data="nav:ai_help"),
+        ],
+        [
+            InlineKeyboardButton("⚙️ Pengaturan", callback_data="nav:settings"),
+            InlineKeyboardButton("🏠 Menu Utama", callback_data="nav:main_menu"),
+        ],
+    ]
+
+    rows.extend(quick_nav)
+    return InlineKeyboardMarkup(rows)
+
+
 def build_system_status_keyboard() -> InlineKeyboardMarkup:
     """Buat keyboard untuk halaman status sistem."""
-    keyboard = [
+    extra = [
         [
-            InlineKeyboardButton("🔄 Refresh", callback_data="system:status"),
-            InlineKeyboardButton("⚡ Proses", callback_data="system:proc"),
+            InlineKeyboardButton("🔄 Refresh Status", callback_data="system:status"),
+            InlineKeyboardButton("⚡ Top Proses", callback_data="system:proc"),
             InlineKeyboardButton("🌐 Jaringan", callback_data="system:net"),
         ],
         [
-            InlineKeyboardButton("🔁 Reboot", callback_data="system:confirm_reboot"),
+            InlineKeyboardButton("🔁 Reboot Server", callback_data="system:confirm_reboot"),
         ],
-        nav_row(main_menu=True),
     ]
-    return InlineKeyboardMarkup(keyboard)
+    return build_sub_dashboard_keyboard(extra)

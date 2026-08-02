@@ -76,7 +76,15 @@ class CPUGuardHandlers:
             f"<b>Whitelist (Rule Custom):</b> {len(cfg.whitelist)} aplikasi\n"
             f"<b>Blacklist (Rule Custom):</b> {len(cfg.blacklist)} aplikasi"
         )
-        kb = InlineKeyboardMarkup([nav_row(main_menu=True)])
+        from guardian.utils.keyboard_builder import build_sub_dashboard_keyboard
+        from telegram import InlineKeyboardButton
+        extra = [
+            [
+                InlineKeyboardButton("🔥 Top 20 CPU", callback_data="cpu_guard:top"),
+                InlineKeyboardButton("📜 Histori Kill", callback_data="cpu_guard:history"),
+            ]
+        ]
+        kb = build_sub_dashboard_keyboard(extra)
         await ctx.respond(msg, keyboard=kb)
 
     async def _show_top(self, ctx: CommandContext) -> None:

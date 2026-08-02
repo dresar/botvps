@@ -61,7 +61,14 @@ class PackageProtectionHandlers:
             f"🚫 <b>Daftar Paket Terlarang:</b>\n{blocked_str}\n\n"
             f"<i>Sistem secara otomatis memonitor proses, sistem file, dan perintah instalasi dari paket terlarang.</i>"
         )
-        kb = InlineKeyboardMarkup([nav_row(main_menu=True)])
+        from guardian.utils.keyboard_builder import build_sub_dashboard_keyboard
+        extra = [
+            [
+                InlineKeyboardButton("🔄 Refresh Scan", callback_data="package_guard:scan"),
+                InlineKeyboardButton("🚫 Paket Terlarang", callback_data="package_guard:blocked"),
+            ]
+        ]
+        kb = build_sub_dashboard_keyboard(extra)
         await ctx.respond(msg, keyboard=kb)
 
     async def _run_scan(self, ctx: CommandContext) -> None:

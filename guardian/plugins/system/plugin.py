@@ -46,6 +46,13 @@ class SystemPlugin(BasePlugin):
         )
         ctx.plugin_manager.register_command(
             namespace="system",
+            command="settings",
+            handler=h.handle_settings,
+            permissions=["system:read"],
+            description="Pengaturan konfigurasi system Guardian",
+        )
+        ctx.plugin_manager.register_command(
+            namespace="system",
             command="cpu",
             handler=h.handle_cpu,
             permissions=["system:read"],

@@ -239,6 +239,8 @@ class SystemHandlers:
 
         if action == "status":
             await self.handle_status(cmd_ctx)
+        elif action == "settings":
+            await self.handle_settings(cmd_ctx)
         elif action == "cpu":
             await self.handle_cpu(cmd_ctx)
         elif action == "ram":
@@ -251,3 +253,28 @@ class SystemHandlers:
             await self.handle_proc(cmd_ctx)
         elif action == "confirm_reboot":
             await self.handle_reboot_confirm(cmd_ctx)
+
+    async def handle_settings(self, ctx: CommandContext) -> None:
+        """Tampilkan dashboard Pengaturan System Serverinka Guardian."""
+        settings = ctx.app_ctx.settings
+
+        text = (
+            f"⚙️ <b>Pengaturan System Serverinka Guardian</b>\n\n"
+            f"<b>Mode Telegram:</b> <code>{settings.telegram_mode.upper()}</code>\n"
+            f"<b>Level Logging:</b> <code>{settings.log_level}</code>\n"
+            f"<b>Database Path:</b> <code>{settings.database_path}</code>\n"
+            f"<b>Super Admins:</b> <code>{len(settings.telegram_admin_user_ids)} ID terdaftar</code>\n\n"
+            f"🛡️ <b>CPU Guard Settings:</b>\n"
+            f"• Batas Limit: <code>{settings.cpu_usage_limit}%</code>\n"
+            f"• Interval Check: <code>{settings.cpu_check_interval}s</code> | Mode: <code>{settings.cpu_kill_mode.upper()}</code>\n"
+            f"• Cooldown: <code>{settings.cpu_cooldown}s</code>\n\n"
+            f"📦 <b>Package Protection Settings:</b>\n"
+            f"• Status: <code>{'AKTIF' if settings.package_guard_enabled else 'NONAKTIF'}</code>\n"
+            f"• Scan Interval: <code>{settings.package_scan_interval_minutes} menit</code>\n\n"
+            f"🧠 <b>AI Assistant Settings:</b>\n"
+            f"• Provider: <code>{settings.ai_provider}</code> | Model: <code>{settings.ai_model}</code>\n"
+        )
+
+        from guardian.utils.keyboard_builder import build_sub_dashboard_keyboard
+        kb = build_sub_dashboard_keyboard()
+        await ctx.respond(text, keyboard=kb)
