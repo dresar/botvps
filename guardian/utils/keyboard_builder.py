@@ -65,6 +65,9 @@ def build_main_menu_keyboard() -> InlineKeyboardMarkup:
             InlineKeyboardButton("📋 Riwayat Terminal", callback_data="terminal:history"),
         ],
         [
+            InlineKeyboardButton("🌐 Web Panel (Mini App)", callback_data="webpanel:open"),
+        ],
+        [
             InlineKeyboardButton("⚙️ Pengaturan System", callback_data="nav:settings"),
             InlineKeyboardButton("🔄 Refresh Menu", callback_data="nav:main_menu"),
         ],

@@ -66,14 +66,54 @@ class GuardianEngine:
         await self._startup()
         assert self._app is not None
 
+        tasks = [self._run_telegram()]
+
+        # Jalankan Web Panel API jika diaktifkan
+        if self._settings.webpanel_enabled:
+            tasks.append(self._run_webpanel())
+
+        try:
+            await asyncio.gather(*tasks)
+        finally:
+            await self._shutdown()
+
+    async def _run_telegram(self) -> None:
+        """Jalankan Telegram bot polling."""
+        assert self._app is not None
         try:
             await self._app.start()
             await self._app.updater.start_polling(allowed_updates=["message", "callback_query"])
             logger.info("Bot aktif dan mendengarkan update...")
-
             await self._shutdown_event.wait()
         finally:
-            await self._shutdown()
+            pass
+
+    async def _run_webpanel(self) -> None:
+        """Jalankan FastAPI Web Panel Server via uvicorn."""
+        assert self._ctx is not None
+        try:
+            import uvicorn
+            from guardian.webpanel.api import create_app
+
+            fastapi_app = create_app(self._ctx)
+            config = uvicorn.Config(
+                app=fastapi_app,
+                host=self._ctx.settings.webpanel_host,
+                port=self._ctx.settings.webpanel_port,
+                log_level="warning",
+                access_log=False,
+            )
+            server = uvicorn.Server(config)
+            logger.info(
+                "Web Panel API aktif.",
+                host=self._ctx.settings.webpanel_host,
+                port=self._ctx.settings.webpanel_port,
+            )
+            await server.serve()
+        except ImportError:
+            logger.warning("uvicorn tidak tersedia, Web Panel tidak dijalankan.")
+        except Exception as e:
+            logger.exception("Web Panel server error.", error=str(e))
 
     async def _startup(self) -> None:
         """Urutan startup yang terstruktur."""

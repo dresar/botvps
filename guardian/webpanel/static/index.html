@@ -1,0 +1,204 @@
+<!DOCTYPE html>
+<html lang="id">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Serverinka Guardian — VPS Control Panel</title>
+  <meta name="description" content="Panel kontrol VPS Serverinka Guardian via Telegram Mini App">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800&family=JetBrains+Mono:wght@400;500&display=swap" rel="stylesheet">
+  <script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.0/dist/chart.umd.min.js"></script>
+  <script src="https://telegram.org/js/telegram-web-app.js"></script>
+  <link rel="stylesheet" href="/static/style.css">
+</head>
+<body>
+  <div id="app">
+
+    <!-- ══ Header ══ -->
+    <header class="header">
+      <div class="status-dot" id="status-dot"></div>
+      <div class="header-logo">⚡ Serverinka</div>
+      <div class="uptime-badge" id="uptime-badge">⏱ memuat...</div>
+      <div class="header-host" id="header-host">—</div>
+    </header>
+
+    <!-- ══ Tab Nav ══ -->
+    <nav class="tabs" id="tabs">
+      <button class="tab active" data-tab="dashboard"><span class="tab-icon">📊</span> Dashboard</button>
+      <button class="tab" data-tab="docker"><span class="tab-icon">🐳</span> Docker</button>
+      <button class="tab" data-tab="services"><span class="tab-icon">⚙️</span> Services</button>
+      <button class="tab" data-tab="terminal"><span class="tab-icon">💻</span> Terminal</button>
+      <button class="tab" data-tab="logs"><span class="tab-icon">📋</span> Logs</button>
+      <button class="tab" data-tab="alerts"><span class="tab-icon">🔔</span> Alerts</button>
+      <button class="tab" data-tab="ai"><span class="tab-icon">🧠</span> AI Chat</button>
+      <button class="tab" data-tab="processes"><span class="tab-icon">🔧</span> Proses</button>
+    </nav>
+
+    <!-- ══ Content ══ -->
+    <main class="content">
+
+      <!-- ── Dashboard ── -->
+      <div class="page active" id="page-dashboard">
+        <div class="grid-4" id="stat-cards">
+          <div class="stat-card cpu">
+            <div class="stat-icon">🖥️</div>
+            <div class="stat-value" id="stat-cpu">—</div>
+            <div class="stat-label">CPU Usage</div>
+            <div class="stat-sub" id="stat-cpu-cores">— cores</div>
+            <div class="progress-bar"><div class="progress-fill cpu" id="bar-cpu" style="width:0%"></div></div>
+          </div>
+          <div class="stat-card ram">
+            <div class="stat-icon">💾</div>
+            <div class="stat-value" id="stat-ram">—</div>
+            <div class="stat-label">RAM Usage</div>
+            <div class="stat-sub" id="stat-ram-detail">—</div>
+            <div class="progress-bar"><div class="progress-fill ram" id="bar-ram" style="width:0%"></div></div>
+          </div>
+          <div class="stat-card disk">
+            <div class="stat-icon">💿</div>
+            <div class="stat-value" id="stat-disk">—</div>
+            <div class="stat-label">Disk Usage</div>
+            <div class="stat-sub" id="stat-disk-detail">—</div>
+            <div class="progress-bar"><div class="progress-fill disk" id="bar-disk" style="width:0%"></div></div>
+          </div>
+          <div class="stat-card load">
+            <div class="stat-icon">📈</div>
+            <div class="stat-value" id="stat-load">—</div>
+            <div class="stat-label">Load Average</div>
+            <div class="stat-sub" id="stat-load-detail">1m / 5m / 15m</div>
+            <div class="progress-bar"><div class="progress-fill warning" id="bar-load" style="width:0%"></div></div>
+          </div>
+        </div>
+
+        <div class="grid-2">
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">📊 CPU History (Real-time)</div>
+            </div>
+            <div class="chart-container"><canvas id="chart-cpu"></canvas></div>
+          </div>
+          <div class="card">
+            <div class="card-header">
+              <div class="card-title">💾 RAM History (Real-time)</div>
+            </div>
+            <div class="chart-container"><canvas id="chart-ram"></canvas></div>
+          </div>
+        </div>
+
+        <div class="card">
+          <div class="card-header">
+            <div class="card-title">💿 Disk Partisi</div>
+          </div>
+          <div id="disk-list" class="loading-overlay"><div class="spinner"></div></div>
+        </div>
+      </div>
+
+      <!-- ── Docker ── -->
+      <div class="page" id="page-docker">
+        <div class="section-header">
+          <div class="section-title">🐳 Docker Containers</div>
+          <div class="action-row">
+            <label style="font-size:0.8rem;color:var(--text-secondary)">
+              <input type="checkbox" id="docker-show-all" checked style="margin-right:4px">
+              Tampilkan semua
+            </label>
+            <button class="btn btn-ghost btn-sm" onclick="loadDocker()">🔄 Refresh</button>
+          </div>
+        </div>
+        <div id="docker-list" class="loading-overlay"><div class="spinner"></div></div>
+      </div>
+
+      <!-- ── Services ── -->
+      <div class="page" id="page-services">
+        <div class="section-header">
+          <div class="section-title">⚙️ Systemd Services</div>
+          <button class="btn btn-ghost btn-sm" onclick="loadServices()">🔄 Refresh</button>
+        </div>
+        <div id="services-list" class="loading-overlay"><div class="spinner"></div></div>
+      </div>
+
+      <!-- ── Terminal ── -->
+      <div class="page" id="page-terminal">
+        <div id="terminal-container">
+          <div id="terminal-toolbar">
+            <span style="color:var(--text-secondary);font-size:0.8rem;font-weight:600;">💻 Terminal</span>
+            <span id="terminal-cwd">~</span>
+            <div style="margin-left:auto;" class="action-row">
+              <button class="btn btn-ghost btn-sm" onclick="clearTerminal()">🗑️ Clear</button>
+              <button class="btn btn-ghost btn-sm" onclick="loadTerminalHistory()">📋 History</button>
+            </div>
+          </div>
+          <div id="terminal-body"></div>
+          <div id="terminal-input-row">
+            <span id="terminal-prompt-label">$</span>
+            <input type="text" id="terminal-input" placeholder="Ketik perintah Linux..." autocomplete="off" autocorrect="off" autocapitalize="off" spellcheck="false">
+            <button class="btn btn-primary btn-sm" onclick="sendTerminalCommand()">▶ Run</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Logs ── -->
+      <div class="page" id="page-logs">
+        <div class="section-header">
+          <div class="section-title">📋 Log Viewer</div>
+          <div class="action-row">
+            <input type="text" class="input" id="log-service-input" placeholder="Nama service (cth: nginx)" style="width:180px">
+            <select class="input" id="log-lines-select">
+              <option value="50">50 baris</option>
+              <option value="100" selected>100 baris</option>
+              <option value="200">200 baris</option>
+              <option value="500">500 baris</option>
+            </select>
+            <button class="btn btn-primary btn-sm" onclick="loadLogs()">📋 Load Log</button>
+          </div>
+        </div>
+        <pre id="log-output">Masukkan nama service dan klik Load Log.</pre>
+      </div>
+
+      <!-- ── Alerts ── -->
+      <div class="page" id="page-alerts">
+        <div class="section-header">
+          <div class="section-title">🔔 Alert & Notifikasi</div>
+          <button class="btn btn-ghost btn-sm" onclick="loadAlerts()">🔄 Refresh</button>
+        </div>
+        <div id="alerts-list" class="loading-overlay"><div class="spinner"></div></div>
+      </div>
+
+      <!-- ── AI Chat ── -->
+      <div class="page" id="page-ai">
+        <div class="card" style="height:calc(100vh - 140px);display:flex;flex-direction:column;padding:0;overflow:hidden;">
+          <div style="padding:14px 18px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:10px;">
+            <span style="font-size:1.2rem">🧠</span>
+            <div>
+              <div style="font-weight:700;font-size:0.9rem;">Serverinka AI Assistant</div>
+              <div style="font-size:0.73rem;color:var(--text-secondary);">Powered by Gemini 2.5 Flash & Groq</div>
+            </div>
+          </div>
+          <div id="ai-messages" style="flex:1;overflow-y:auto;padding:16px;display:flex;flex-direction:column;gap:12px;">
+            <div class="chat-msg ai">👋 Halo! Saya <b>Serverinka AI</b>. Tanya apapun tentang server, Linux, Docker, atau hal lainnya!</div>
+          </div>
+          <div id="ai-input-row">
+            <input type="text" id="ai-input" placeholder="Tanya AI Serverinka..." autocomplete="off">
+            <button class="btn btn-primary" id="ai-send-btn" onclick="sendAIMessage()">Kirim</button>
+          </div>
+        </div>
+      </div>
+
+      <!-- ── Processes ── -->
+      <div class="page" id="page-processes">
+        <div class="section-header">
+          <div class="section-title">🔧 Top Proses (CPU)</div>
+          <button class="btn btn-ghost btn-sm" onclick="loadProcesses()">🔄 Refresh</button>
+        </div>
+        <div id="processes-list" class="loading-overlay"><div class="spinner"></div></div>
+      </div>
+
+    </main>
+  </div>
+
+  <!-- ── Toast Container ── -->
+  <div id="toast-container"></div>
+
+  <script src="/static/app.js"></script>
+</body>
+</html>
