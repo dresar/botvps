@@ -490,10 +490,25 @@ class BotGateway:
     ) -> None:
         """Route command ke plugin handler yang sesuai."""
         if not text.startswith("/"):
+            # Jika pesan berupa teks biasa tanpa /, teruskan langsung ke AI Assistant
+            ai_cmd = self._ctx.plugin_manager.get_command("ask", "menu")
+            if ai_cmd:
+                cmd_ctx = CommandContext(
+                    user=user,
+                    chat_id=chat_id,
+                    message_id=update.message.message_id if update.message else 0,
+                    command="menu",
+                    args=text.split(),
+                    raw_text=text,
+                    update=update,
+                    bot_gateway=self,
+                    app_ctx=self._ctx,
+                )
+                await ai_cmd.handler(cmd_ctx)
             return
 
         parts = text.split()
-        raw_command = parts[0].lstrip("/").lower()
+        raw_command = parts[0].lstrip("/").lower().split("@")[0]
         args = parts[1:] if len(parts) > 1 else []
 
         SHORTCUTS = {
@@ -536,6 +551,11 @@ class BotGateway:
                 )
             elif raw_command == "help" or namespace == "help":
                 await self._send_help(chat_id, user)
+            else:
+                await self.send_message(
+                    chat_id,
+                    f"❌ <b>Perintah Tidak Dikenali</b>\n\nPerintah <code>/{escape_html(raw_command)}</code> tidak ditemukan. Gunakan menu <code>/start</code> atau <code>/help</code>.",
+                )
             return
 
         for perm in registered.permissions:
