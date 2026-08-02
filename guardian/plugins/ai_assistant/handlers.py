@@ -19,6 +19,21 @@ class AIAssistantHandlers:
     def __init__(self, service: AIAssistantService) -> None:
         self.service = service
 
+    def _extract_clean_keys(self, raw_input: str) -> list[str]:
+        """Ekstrak API Key bersih dari input teks, mengabaikan komentar # ... atau label tambahan."""
+        clean_keys = []
+        lines = raw_input.splitlines()
+        for line in lines:
+            line_clean = line.split("#")[0].split("//")[0].strip()
+            if not line_clean:
+                continue
+            tokens = line_clean.split()
+            for tok in tokens:
+                t = tok.strip()
+                if len(t) >= 10 and not t.startswith("/") and not t.lower() in ("addkey", "addkeys", "addgroq", "groqadd"):
+                    clean_keys.append(t)
+        return clean_keys
+
     async def handle_ask(self, ctx: CommandContext) -> None:
         """Tanya AI Assistant Hermes atau Kelola Key & Skills. Syntax: /ask [pertanyaan|subcommand]"""
         if not ctx.args:
@@ -191,7 +206,7 @@ class AIAssistantHandlers:
             )
             return
 
-        keys = [k.strip() for k in re.split(r"[\s,\n]+", raw_input) if k.strip()]
+        keys = self._extract_clean_keys(raw_input)
 
         if not keys:
             await ctx.bot_gateway.send_message(ctx.chat_id, "❌ Tidak ada API Key Groq valid yang ditemukan.")
@@ -381,7 +396,7 @@ class AIAssistantHandlers:
             )
             return
 
-        keys = [k.strip() for k in re.split(r"[\s,\n]+", raw_input) if k.strip()]
+        keys = self._extract_clean_keys(raw_input)
 
         if not keys:
             await ctx.bot_gateway.send_message(ctx.chat_id, "❌ Tidak ada API Key valid yang ditemukan.")

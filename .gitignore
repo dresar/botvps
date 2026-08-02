@@ -79,3 +79,6 @@ backups/
 guardian.env
 *.key
 *.pem
+*.txt
+onekeyhub_export_*.txt
+export_*.txt
