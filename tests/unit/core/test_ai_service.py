@@ -1,7 +1,6 @@
 """Unit test untuk AIService."""
 
-from unittest.mock import AsyncMock, MagicMock, patch
-
+from unittest.mock import MagicMock, patch
 import pytest
 
 from guardian.core.ai_service import AIService
@@ -20,12 +19,41 @@ async def test_ai_service_disabled(mock_settings):
 
 
 @pytest.mark.asyncio
-async def test_ai_service_success(mock_settings):
-    """AIService harus berhasil memproses respon OpenAI format dari Gateway."""
+async def test_ai_service_gemini_success(mock_settings):
+    """AIService harus berhasil memproses respon Google AI Studio Gemini 2.5 Flash format."""
     mock_settings.ai_provider = "gemini"
-    mock_settings.ai_api_key = "AR_test_key"
-    mock_settings.ai_base_url = "https://one.apprentice.cyou/v1"
+    mock_settings.ai_api_key = "test_key"
     mock_settings.ai_model = "gemini-2.5-flash"
+
+    service = AIService(mock_settings)
+
+    mock_response = MagicMock()
+    mock_response.status_code = 200
+    mock_response.json.return_value = {
+        "candidates": [
+            {
+                "content": {
+                    "parts": [
+                        {
+                            "text": "Halo! Saya adalah asisten AI Serverinka."
+                        }
+                    ]
+                }
+            }
+        ]
+    }
+
+    with patch("httpx.AsyncClient.post", return_value=mock_response):
+        result = await service.chat_completion([{"role": "user", "content": "Halo"}])
+        assert "Serverinka" in result
+
+
+@pytest.mark.asyncio
+async def test_ai_service_openai_success(mock_settings):
+    """AIService harus memproses format OpenAI untuk provider non-gemini."""
+    mock_settings.ai_provider = "openai"
+    mock_settings.ai_api_key = "test_key"
+    mock_settings.ai_model = "gpt-4o"
 
     service = AIService(mock_settings)
 
@@ -36,7 +64,7 @@ async def test_ai_service_success(mock_settings):
             {
                 "message": {
                     "role": "assistant",
-                    "content": "Halo! Saya adalah asisten AI Serverinka.",
+                    "content": "Halo! Saya OpenAI.",
                 }
             }
         ]
@@ -45,4 +73,4 @@ async def test_ai_service_success(mock_settings):
 
     with patch("httpx.AsyncClient.post", return_value=mock_response):
         result = await service.chat_completion([{"role": "user", "content": "Halo"}])
-        assert "Serverinka" in result
+        assert "OpenAI" in result

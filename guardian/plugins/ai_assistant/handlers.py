@@ -1,13 +1,14 @@
-"""Handlers untuk plugin ai_assistant dengan Hermes Memory System."""
+"""Handlers untuk plugin ai_assistant dengan Hermes Memory System & Gemini Key Pool Management."""
 
+import re
 import structlog
 
 from guardian.core.bot_gateway import CommandContext
 from guardian.core.exceptions import AIProviderError, AIProviderNotConfiguredError
 from guardian.plugins.ai_assistant.service import AIAssistantService
 from guardian.utils.formatters import escape_html
-from guardian.utils.keyboard_builder import nav_row
-from telegram import InlineKeyboardMarkup
+from guardian.utils.keyboard_builder import build_sub_dashboard_keyboard
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 logger = structlog.get_logger(__name__)
 
@@ -19,7 +20,7 @@ class AIAssistantHandlers:
         self.service = service
 
     async def handle_ask(self, ctx: CommandContext) -> None:
-        """Tanya AI Assistant Hermes. Syntax: /ask [pertanyaan|subcommand]"""
+        """Tanya AI Assistant Hermes atau Kelola API Key Pool. Syntax: /ask [pertanyaan|subcommand]"""
         if not ctx.args:
             await self._show_help(ctx)
             return
@@ -35,22 +36,48 @@ class AIAssistantHandlers:
             await self._handle_forget(ctx, sub_args)
         elif sub == "clear":
             await self._handle_clear_chat(ctx)
+        elif sub in ("addkey", "addkeys"):
+            await self._handle_add_keys(ctx, sub_args)
+        elif sub in ("keys", "keylist", "listkeys"):
+            await self._handle_list_keys(ctx)
+        elif sub in ("delkey", "deletekey", "removekey"):
+            await self._handle_delete_key(ctx, sub_args)
+        elif sub in ("clearkeys", "clean"):
+            await self._handle_clear_keys(ctx)
         else:
             await self._handle_chat_query(ctx)
 
     async def _show_help(self, ctx: CommandContext) -> None:
-        """Tampilkan bantuan AI Assistant & Hermes Memory."""
+        """Tampilkan bantuan AI Assistant, Hermes Memory & API Key Pool."""
+        stats = await self.service.repo.get_keys_stats()
+        key_info = (
+            f"🔑 <b>Gemini Key Pool (SQLite):</b> <code>{stats['active_keys']} Aktif</code> / <code>{stats['total_keys']} Total</code>"
+        )
+
         msg = (
-            "🤖 <b>Serverinka AI Assistant (Hermes Engine)</b>\n\n"
-            "<b>Penggunaan Utama:</b>\n"
-            "• <code>/ask [pertanyaan]</code> — Tanya AI dengan memori & konteks VPS real-time\n\n"
+            "🤖 <b>Serverinka AI Assistant (Google Gemini 2.5 Flash)</b>\n\n"
+            f"{key_info}\n\n"
+            "<b>Penggunaan AI Chat:</b>\n"
+            "• <code>/ask [pertanyaan]</code> — Tanya AI dengan memori & konteks VPS real-time\n"
+            "• Ketik chat biasa (misal: <code>halo</code>) — Langsung dijawab oleh AI!\n\n"
+            "🔑 <b>Manajemen API Key Pool (SQLite):</b>\n"
+            "• <code>/ai addkey [key1] [key2] ...</code> — Tambah 1 hingga 100+ API key Gemini\n"
+            "• <code>/ai keys</code> — Lihat statistik & kesehatan Key Pool\n"
+            "• <code>/ai delkey [ID|key]</code> — Hapus API Key dari SQLite\n"
+            "• <code>/ai clearkeys</code> — Hapus seluruh key mati/kuota habis\n\n"
             "🧠 <b>Manajemen Memori (Hermes System):</b>\n"
-            "• <code>/ask remember [aturan/fakta]</code> — Catat memori / gaya bahasa / instruksi khusus\n"
-            "• <code>/ask memory</code> — Lihat seluruh memori & aturan tersimpan\n"
+            "• <code>/ask remember [aturan]</code> — Catat memori / instruksi khusus\n"
+            "• <code>/ask memory</code> — Lihat seluruh memori tersimpan\n"
             "• <code>/ask forget [ID|all]</code> — Hapus memori tersimpan\n"
             "• <code>/ask clear</code> — Reset histori percakapan singkat"
         )
-        await ctx.bot_gateway.send_message(ctx.chat_id, msg)
+        kb = build_sub_dashboard_keyboard([
+            [
+                InlineKeyboardButton("🔑 Status Key Pool", callback_data="ask:keys"),
+                InlineKeyboardButton("🧠 Memori AI", callback_data="ask:memory"),
+            ]
+        ])
+        await ctx.respond(msg, keyboard=kb)
 
     async def _handle_chat_query(self, ctx: CommandContext) -> None:
         """Proses percakapan utama dengan AI."""
@@ -78,7 +105,7 @@ class AIAssistantHandlers:
         try:
             response_text = await self.service.ask_ai(ctx.user.telegram_id, user_prompt)
             formatted_text = f"🤖 <b>Serverinka AI</b>\n\n{response_text}"
-            kb = InlineKeyboardMarkup([nav_row(main_menu=True)])
+            kb = build_sub_dashboard_keyboard()
 
             if loading_msg:
                 await ctx.bot_gateway.edit_message(
@@ -88,7 +115,7 @@ class AIAssistantHandlers:
                 await ctx.bot_gateway.send_message(ctx.chat_id, formatted_text, keyboard=kb)
 
         except (AIProviderNotConfiguredError, AIProviderError) as e:
-            error_text = f"❌ <b>AI Assistant Error:</b> {escape_html(e.message)}"
+            error_text = f"❌ <b>AI Assistant Error:</b>\n\n{escape_html(str(e))}"
             if loading_msg:
                 await ctx.bot_gateway.edit_message(ctx.chat_id, loading_msg.message_id, error_text)
             else:
@@ -99,6 +126,98 @@ class AIAssistantHandlers:
                 await ctx.bot_gateway.edit_message(
                     ctx.chat_id, loading_msg.message_id, "❌ Terjadi kesalahan pada AI Service."
                 )
+
+    async def _handle_add_keys(self, ctx: CommandContext, args: list[str]) -> None:
+        """Tambah 1 hingga 100+ Gemini API Key ke SQLite Key Pool."""
+        raw_input = " ".join(args).strip()
+        if not raw_input:
+            raw_input = ctx.raw_text.strip()
+            for pfx in ("/ai addkey", "/ai addkeys", "/ask addkey", "/ask addkeys"):
+                if raw_input.lower().startswith(pfx):
+                    raw_input = raw_input[len(pfx):].strip()
+                    break
+
+        if not raw_input:
+            await ctx.bot_gateway.send_message(
+                ctx.chat_id,
+                "❌ <b>Format Salah.</b>\n\n"
+                "Gunakan format:\n"
+                "<code>/ai addkey AIzaSyKey1 AIzaSyKey2 AIzaSyKey3 ...</code>\n\n"
+                "<i>Anda dapat memasukkan hingga 100+ API Key sekaligus dipisahkan dengan spasi atau baris baru!</i>",
+            )
+            return
+
+        # Split berdasarkan spasi, koma, atau baris baru
+        keys = [k.strip() for k in re.split(r"[\s,\n]+", raw_input) if k.strip()]
+
+        if not keys:
+            await ctx.bot_gateway.send_message(ctx.chat_id, "❌ Tidak ada API Key valid yang ditemukan.")
+            return
+
+        added, duplicates = await self.service.repo.add_api_keys(keys)
+
+        stats = await self.service.repo.get_keys_stats()
+
+        msg = (
+            f"✅ <b>Berhasil Memproses Gemini API Key Pool!</b>\n\n"
+            f"📥 <b>Diterima:</b> <code>{len(keys)} Key</code>\n"
+            f"➕ <b>Ditambahkan ke SQLite:</b> <code>{added} Key</code>\n"
+            f"⚠️ <b>Duplikat/Diabaikan:</b> <code>{duplicates} Key</code>\n\n"
+            f"📊 <b>Status Key Pool Saat Ini:</b>\n"
+            f"• Total Key: <code>{stats['total_keys']}</code>\n"
+            f"• Key Aktif: <code>{stats['active_keys']}</code>\n"
+            f"• Key Mati/Habis Limit: <code>{stats['inactive_keys']}</code>\n\n"
+            f"<i>AI akan melakukan Load Balancing & Auto Rotation dari seluruh key aktif di SQLite secara otomatis!</i>"
+        )
+        kb = build_sub_dashboard_keyboard([
+            [InlineKeyboardButton("🔑 Lihat Seluruh Key Pool", callback_data="ask:keys")]
+        ])
+        await ctx.respond(msg, keyboard=kb)
+
+    async def _handle_list_keys(self, ctx: CommandContext) -> None:
+        """Lihat status & kesehatan Key Pool di SQLite."""
+        stats = await self.service.repo.get_keys_stats()
+
+        msg = (
+            "🔑 <b>Statistik SQLite Gemini API Key Pool</b>\n\n"
+            f"🟢 <b>Key Aktif:</b> <code>{stats['active_keys']} Key</code>\n"
+            f"🔴 <b>Key Mati (Kuota Habis/Error):</b> <code>{stats['inactive_keys']} Key</code>\n"
+            f"📦 <b>Total Key Terdaftar:</b> <code>{stats['total_keys']} Key</code>\n"
+            f"⚡ <b>Total Permintaan Ditangani:</b> <code>{stats['total_usage']} request</code>\n\n"
+            "<i>Sistem otomatis melakukan failover & rotasi key jika salah satu key mencapai rate limit!</i>"
+        )
+        kb = build_sub_dashboard_keyboard([
+            [
+                InlineKeyboardButton("🧹 Bersihkan Key Mati", callback_data="ask:clearkeys"),
+                InlineKeyboardButton("🧠 Memori AI", callback_data="ask:memory"),
+            ]
+        ])
+        await ctx.respond(msg, keyboard=kb)
+
+    async def _handle_delete_key(self, ctx: CommandContext, args: list[str]) -> None:
+        """Hapus key tertentu berdasarkan ID atau string Key."""
+        if not args:
+            await ctx.bot_gateway.send_message(
+                ctx.chat_id, "❌ Format: <code>/ai delkey [ID|API_Key]</code>"
+            )
+            return
+
+        ok = await self.service.repo.delete_key(args[0])
+        if ok:
+            await ctx.bot_gateway.send_message(
+                ctx.chat_id, f"🗑️ API Key <code>{escape_html(args[0])}</code> berhasil dihapus dari SQLite."
+            )
+        else:
+            await ctx.bot_gateway.send_message(
+                ctx.chat_id, f"❌ API Key <code>{escape_html(args[0])}</code> tidak ditemukan."
+            )
+
+    async def _handle_clear_keys(self, ctx: CommandContext) -> None:
+        """Pembersihan key mati."""
+        cnt = await self.service.repo.clear_inactive_keys()
+        await ctx.bot_gateway.send_message(
+            ctx.chat_id, f"🧹 Berhasil membersihkan <code>{cnt}</code> API key yang dinonaktifkan dari SQLite."
+        )
 
     async def _handle_remember(self, ctx: CommandContext, args: list[str]) -> None:
         """Simpan aturan / memori baru secara manual."""
@@ -165,5 +284,5 @@ class AIAssistantHandlers:
         """Reset histori percakapan singkat."""
         cnt = await self.service.repo.clear_chat_history(ctx.user.telegram_id)
         await ctx.bot_gateway.send_message(
-            ctx.chat_id, "🧹 <b>Histori percakapan singkat berhasil dibersihkan!</b> (Konteks percakapan di-reset)."
+            ctx.chat_id, f"🧹 Histori percakapan singkat berhasil direset ({cnt} pesan dihapus)."
         )

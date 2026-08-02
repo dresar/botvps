@@ -53,15 +53,12 @@ class GuardianSettings(BaseSettings):
 
     # ---- AI ----
     ai_provider: str = Field(
-        default="gemini", description="Provider AI: disabled, openai, gemini, ollama, gateway"
+        default="gemini", description="Provider AI: disabled, gemini, openai, ollama"
     )
     ai_api_key: str = Field(
-        default="AR_7651fb06_0f19ac85a3a409b4fe568b2afb7a1512", description="API key AI provider"
+        default="", description="Default API key AI provider (opsional jika menggunakan SQLite Key Pool)"
     )
-    ai_base_url: str = Field(
-        default="https://one.apprentice.cyou/v1", description="Base URL API Gateway AI"
-    )
-    ai_model: str = Field(default="gemini-2.5-flash", description="Model AI")
+    ai_model: str = Field(default="gemini-2.5-flash", description="Model AI (default: gemini-2.5-flash)")
     ollama_base_url: str = Field(
         default="http://localhost:11434", description="URL Ollama"
     )

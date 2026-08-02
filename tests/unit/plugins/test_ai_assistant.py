@@ -1,4 +1,4 @@
-"""Unit test untuk ai_assistant plugin dengan Hermes Memory System."""
+"""Unit test untuk ai_assistant plugin dengan Hermes Memory System & Gemini Key Pool."""
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock
@@ -13,10 +13,10 @@ def mock_app_ctx():
     ctx.database = AsyncMock()
     ctx.db = ctx.database
     ctx.database.fetch_all.return_value = []
+    ctx.database.fetch_one.return_value = {"api_key": "AIzaSyKeyTest", "cnt": 5, "total_use": 100}
     ctx.database.execute.return_value = MagicMock(lastrowid=1, rowcount=1)
     ctx.settings.ai_provider = "gemini"
     ctx.settings.ai_api_key = "test_key"
-    ctx.settings.ai_base_url = "https://one.apprentice.cyou/v1"
     ctx.settings.ai_model = "gemini-2.5-flash"
     ctx.settings.docker_enabled = True
     ctx.settings.cpu_usage_limit = 80.0
@@ -39,7 +39,7 @@ async def test_auto_detect_memory(mock_app_ctx):
         telegram_id=7896674035,
         prompt="Mulai sekarang gunakan bahasa santai dan panggilan Bos",
     )
-    mock_app_ctx.db.execute.assert_called()
+    mock_app_ctx.database.execute.assert_called()
 
 
 def test_format_markdown_to_telegram_html(mock_app_ctx):
@@ -49,3 +49,19 @@ def test_format_markdown_to_telegram_html(mock_app_ctx):
     assert "<b>Bos</b>" in formatted
     assert "<code>test code</code>" in formatted
     assert "<pre><code>" in formatted
+
+
+@pytest.mark.asyncio
+async def test_add_api_keys(mock_app_ctx):
+    service = AIAssistantService(mock_app_ctx)
+    added, dupes = await service.repo.add_api_keys(["AIzaSyKey1", "AIzaSyKey2", "AIzaSyKey3"])
+    assert added == 3
+    assert dupes == 0
+
+
+@pytest.mark.asyncio
+async def test_get_keys_stats(mock_app_ctx):
+    service = AIAssistantService(mock_app_ctx)
+    stats = await service.repo.get_keys_stats()
+    assert "total_keys" in stats
+    assert "active_keys" in stats

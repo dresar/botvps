@@ -43,20 +43,18 @@ class AIAssistantPlugin(BasePlugin):
         self._service = AIAssistantService(ctx)
         h = AIAssistantHandlers(self._service)
 
-        ctx.plugin_manager.register_command(
-            namespace="ask",
-            command="menu",
-            handler=h.handle_ask,
-            permissions=["system:read"],
-            description="Tanya AI Assistant Gemini",
-        )
-        ctx.plugin_manager.register_command(
-            namespace="ai",
-            command="ask",
-            handler=h.handle_ask,
-            permissions=["system:read"],
-            description="Tanya AI Assistant Gemini",
-        )
+        for ns in ("ask", "ai"):
+            for cmd in ("menu", "ask", "help", "addkey", "addkeys", "keys", "keylist", "delkey", "clearkeys"):
+                try:
+                    ctx.plugin_manager.register_command(
+                        namespace=ns,
+                        command=cmd,
+                        handler=h.handle_ask,
+                        permissions=["system:read"],
+                        description="Tanya AI Assistant Gemini & Key Pool",
+                    )
+                except Exception:
+                    pass
 
         logger.info("AIAssistantPlugin siap.")
 
