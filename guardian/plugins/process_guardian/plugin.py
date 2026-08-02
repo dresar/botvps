@@ -42,20 +42,14 @@ class ProcessGuardianPlugin(BasePlugin):
         self._service = ProcessGuardianService(ctx)
         handlers = CPUGuardHandlers(self._service)
 
-        ctx.plugin_manager.register_command(
-            namespace="cpu_guard",
-            command="menu",
-            handler=handlers.handle_cpu_guard,
-            permissions=["system:read"],
-            description="Pengawas & Pelindung CPU VPS",
-        )
-        ctx.plugin_manager.register_command(
-            namespace="cpu",
-            command="status",
-            handler=handlers.handle_cpu_guard,
-            permissions=["system:read"],
-            description="Pengawas & Pelindung CPU VPS",
-        )
+        for cmd_name in ("menu", "status", "list"):
+            ctx.plugin_manager.register_command(
+                namespace="cpu_guard",
+                command=cmd_name,
+                handler=handlers.handle_cpu_guard,
+                permissions=["system:read"],
+                description="Pengawas & Pelindung CPU VPS",
+            )
 
         # Daftarkan background job scheduler internal untuk monitoring CPU
         interval = ctx.settings.cpu_check_interval

@@ -531,11 +531,30 @@ class BotGateway:
             "status": ("system", "status"),
             "cancel": ("nav", "cancel"),
             "ask": ("ask", "menu"),
-            "ai": ("ai", "ask"),
+            "ai": ("ask", "menu"),
+            "package_guard": ("package_guard", "menu"),
+            "package_protection": ("package_guard", "menu"),
+            "package": ("package_guard", "menu"),
+            "cpu_guard": ("cpu_guard", "menu"),
+            "process_guardian": ("cpu_guard", "menu"),
+            "cpu": ("cpu_guard", "menu"),
+            "service": ("service", "list"),
+            "docker": ("docker", "list"),
+            "alert": ("alert", "list"),
+            "schedule": ("schedule", "list"),
+            "user": ("user", "list"),
+            "audit": ("audit", "list"),
         }
 
         if raw_command in SHORTCUTS:
-            namespace, command = SHORTCUTS[raw_command]
+            default_ns, default_cmd = SHORTCUTS[raw_command]
+            if args and self._ctx.plugin_manager.get_command(default_ns, args[0].lower()):
+                namespace = default_ns
+                command = args[0].lower()
+                args = args[1:]
+            else:
+                namespace = default_ns
+                command = default_cmd
         elif ":" in raw_command:
             namespace, command = raw_command.split(":", 1)
         else:
