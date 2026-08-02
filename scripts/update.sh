@@ -21,12 +21,17 @@ systemctl stop serverinka-guardian.service || true
 echo "[INFO] Mengambil update git terbaru..."
 cd "$INSTALL_DIR"
 git config --global --add safe.directory "$INSTALL_DIR" 2>/dev/null || true
-git fetch origin main
-git reset --hard origin/main
+git fetch origin main --quiet
+git reset --hard origin/main --quiet
 
 # 3. Update dependensi via uv
 echo "[INFO] Mengupdate dependensi..."
-su - serverinka -c "cd $INSTALL_DIR && /usr/local/bin/uv sync"
+chown -R serverinka:serverinka "$INSTALL_DIR"
+if command -v runuser &>/dev/null; then
+    runuser -u serverinka -- /usr/local/bin/uv sync --frozen
+else
+    su -s /bin/bash serverinka -c "/usr/local/bin/uv sync --frozen"
+fi
 
 # 4. Jalankan ulang service
 echo "[INFO] Memulai kembali service serverinka-guardian..."
