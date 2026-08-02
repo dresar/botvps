@@ -61,7 +61,7 @@ class DatabaseManager:
             ) from e
 
         try:
-            await run_migrations(self._db_path)
+            await run_migrations(connection=self._connection)
         except Exception as e:
             raise DatabaseError(f"Migrasi database gagal: {e}", detail=str(e)) from e
 

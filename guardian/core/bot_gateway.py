@@ -413,7 +413,7 @@ class BotGateway:
         registered = self._ctx.plugin_manager.get_command(namespace, command)
 
         if registered is None:
-            if namespace in ("start", "menu"):
+            if raw_command in ("start", "menu") or namespace in ("start", "menu"):
                 from guardian.utils.keyboard_builder import build_main_menu_keyboard
                 from guardian.utils.message_builder import build_header
                 await self.send_message(
@@ -421,7 +421,7 @@ class BotGateway:
                     build_header("🤖 Serverinka Guardian", "Pilih menu:"),
                     keyboard=build_main_menu_keyboard(),
                 )
-            elif namespace == "help":
+            elif raw_command == "help" or namespace == "help":
                 await self._send_help(chat_id, user)
             return
 

@@ -48,14 +48,7 @@ async def _apply_migration(conn: aiosqlite.Connection, version: int, path: Path)
     sql_content = path.read_text(encoding="utf-8")
 
     try:
-        async with conn.execute("BEGIN"):
-            pass
-
-        for statement in sql_content.split(";"):
-            stmt = statement.strip()
-            if stmt and not stmt.startswith("--"):
-                await conn.execute(stmt)
-
+        await conn.executescript(sql_content)
         await conn.execute(
             "INSERT INTO migrations (version, name) VALUES (?, ?)",
             (version, path.stem),
@@ -70,40 +63,53 @@ async def _apply_migration(conn: aiosqlite.Connection, version: int, path: Path)
         ) from e
 
 
-async def run_migrations(db_path: str) -> None:
+async def _execute_migrations_on_conn(conn: aiosqlite.Connection) -> None:
+    """Terapkan migrasi pada koneksi SQLite yang aktif."""
+    await conn.execute("PRAGMA foreign_keys = OFF")
+    await conn.execute("""
+        CREATE TABLE IF NOT EXISTS migrations (
+            id          INTEGER PRIMARY KEY AUTOINCREMENT,
+            version     INTEGER NOT NULL UNIQUE,
+            name        TEXT    NOT NULL,
+            applied_at  TEXT    NOT NULL DEFAULT (datetime('now', 'utc'))
+        )
+    """)
+    await conn.commit()
+
+    applied = await _get_applied_versions(conn)
+    all_migrations = _discover_migrations()
+    pending = [(v, p) for v, p in all_migrations if v not in applied]
+
+    if not pending:
+        logger.debug("Tidak ada migrasi baru yang perlu diterapkan.")
+        return
+
+    logger.info("Menjalankan migrasi database...", count=len(pending))
+
+    for version, path in pending:
+        await _apply_migration(conn, version, path)
+
+    await conn.execute("PRAGMA foreign_keys = ON")
+    logger.info("Semua migrasi selesai.", total_applied=len(pending))
+
+
+async def run_migrations(
+    db_path: str | None = None,
+    connection: aiosqlite.Connection | None = None,
+) -> None:
     """Jalankan semua migrasi yang belum diterapkan.
 
     Args:
-        db_path: Path ke file database SQLite.
+        db_path: Path ke file database SQLite (opsional jika connection diberikan).
+        connection: Koneksi aiosqlite aktif (opsional).
 
     Raises:
         MigrationError: Jika migrasi gagal dijalankan.
     """
-    async with aiosqlite.connect(db_path) as conn:
-        await conn.execute("PRAGMA foreign_keys = OFF")
-
-        await conn.execute("""
-            CREATE TABLE IF NOT EXISTS migrations (
-                id          INTEGER PRIMARY KEY AUTOINCREMENT,
-                version     INTEGER NOT NULL UNIQUE,
-                name        TEXT    NOT NULL,
-                applied_at  TEXT    NOT NULL DEFAULT (datetime('now', 'utc'))
-            )
-        """)
-        await conn.commit()
-
-        applied = await _get_applied_versions(conn)
-        all_migrations = _discover_migrations()
-        pending = [(v, p) for v, p in all_migrations if v not in applied]
-
-        if not pending:
-            logger.debug("Tidak ada migrasi baru yang perlu diterapkan.")
-            return
-
-        logger.info("Menjalankan migrasi database...", count=len(pending))
-
-        for version, path in pending:
-            await _apply_migration(conn, version, path)
-
-        await conn.execute("PRAGMA foreign_keys = ON")
-        logger.info("Semua migrasi selesai.", total_applied=len(pending))
+    if connection is not None:
+        await _execute_migrations_on_conn(connection)
+    elif db_path is not None:
+        async with aiosqlite.connect(db_path) as conn:
+            await _execute_migrations_on_conn(conn)
+    else:
+        raise MigrationError("Harus menyertakan db_path atau connection.")

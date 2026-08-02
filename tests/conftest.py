@@ -7,12 +7,6 @@ import pytest
 import pytest_asyncio
 
 
-@pytest.fixture(scope="session")
-def event_loop():
-    """Event loop yang di-share untuk semua test dalam sesi."""
-    loop = asyncio.new_event_loop()
-    yield loop
-    loop.close()
 
 
 @pytest_asyncio.fixture

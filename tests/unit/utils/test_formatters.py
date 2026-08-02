@@ -37,7 +37,7 @@ class TestFormatUptime:
         assert "45 detik" in format_uptime(45)
 
     def test_minutes(self):
-        assert "menit" in format_uptime(3600)
+        assert "menit" in format_uptime(180)
 
     def test_hours(self):
         assert "jam" in format_uptime(7200)

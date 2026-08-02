@@ -1,6 +1,6 @@
 """Unit test untuk AIService."""
 
-from unittest.mock import AsyncMock, patch
+from unittest.mock import AsyncMock, MagicMock, patch
 
 import pytest
 
@@ -29,7 +29,7 @@ async def test_ai_service_success(mock_settings):
 
     service = AIService(mock_settings)
 
-    mock_response = AsyncMock()
+    mock_response = MagicMock()
     mock_response.status_code = 200
     mock_response.json.return_value = {
         "choices": [
@@ -41,7 +41,7 @@ async def test_ai_service_success(mock_settings):
             }
         ]
     }
-    mock_response.raise_for_status = AsyncMock()
+    mock_response.raise_for_status = MagicMock()
 
     with patch("httpx.AsyncClient.post", return_value=mock_response):
         result = await service.chat_completion([{"role": "user", "content": "Halo"}])

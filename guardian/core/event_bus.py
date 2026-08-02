@@ -37,7 +37,7 @@ class EventBus:
             self._wildcard_subscribers.append(handler)
         else:
             self._subscribers[event_name].append(handler)
-        logger.debug("Handler terdaftar untuk event.", event=event_name)
+        logger.debug("Handler terdaftar untuk event.", event_name=event_name)
 
     def unsubscribe(self, event_name: str, handler: EventHandler) -> None:
         """Hapus handler dari daftar subscriber.
@@ -71,15 +71,14 @@ class EventBus:
         handlers.extend(self._wildcard_subscribers)
 
         if not handlers:
-            logger.debug("Tidak ada subscriber untuk event.", event=event_name)
+            logger.debug("Tidak ada subscriber untuk event.", event_name=event_name)
             return
 
         logger.debug(
             "Mempublikasikan event.",
-            event=event_name,
+            event_name=event_name,
             subscriber_count=len(handlers),
         )
-
         tasks = [self._invoke_handler(handler, event_name, payload) for handler in handlers]
         await asyncio.gather(*tasks, return_exceptions=True)
 
@@ -101,7 +100,7 @@ class EventBus:
         except Exception:
             logger.exception(
                 "Error pada event subscriber.",
-                event=event_name,
+                event_name=event_name,
                 handler=getattr(handler, "__qualname__", str(handler)),
             )
 
