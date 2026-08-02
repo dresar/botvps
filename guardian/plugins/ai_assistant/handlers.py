@@ -61,6 +61,8 @@ class AIAssistantHandlers:
             await self._handle_list_groq_keys(ctx)
         elif sub in ("delkey", "deletekey", "removekey"):
             await self._handle_delete_key(ctx, sub_args)
+        elif sub in ("delgroq", "deletegroq", "removegroq"):
+            await self._handle_delete_groq_key(ctx, sub_args)
         elif sub in ("clearkeys", "clean"):
             await self._handle_clear_keys(ctx)
         else:
@@ -231,20 +233,33 @@ class AIAssistantHandlers:
         await ctx.respond(msg, keyboard=kb)
 
     async def _handle_list_groq_keys(self, ctx: CommandContext) -> None:
-        """Lihat status & kesehatan Groq Key Pool."""
+        """Lihat status & kesehatan Groq Key Pool beserta ID dan Error Count."""
         stats = await self.service.repo.get_groq_stats()
-        msg = (
-            "⚡ <b>Statistik Groq Backup Key Pool (SQLite)</b>\n\n"
-            f"🟢 <b>Key Aktif:</b> <code>{stats['active_keys']} Key</code>\n"
-            f"📦 <b>Total Key Terdaftar:</b> <code>{stats['total_keys']} Key</code>\n"
-            f"⚡ <b>Total Permintaan Ditangani:</b> <code>{stats['total_usage']} request</code>\n"
-            f"🧠 <b>Model Trending:</b> <code>llama-3.3-70b-versatile</code>\n\n"
-            "<i>Digunakan otomatis sebagai cadangan saat Gemini mengalami rate limit/error!</i>"
-        )
+        all_keys = await self.service.repo.get_all_groq_keys(limit=30)
+
+        lines = [
+            "⚡ <b>Statistik Groq Backup Key Pool (SQLite)</b>\n",
+            f"🟢 <b>Key Aktif:</b> <code>{stats['active_keys']}</code> | 📦 <b>Total:</b> <code>{stats['total_keys']}</code> | ⚡ <b>Total Use:</b> <code>{stats['total_usage']}</code>\n",
+            "📋 <b>Daftar Groq Key & Jumlah Error:</b>",
+        ]
+
+        if not all_keys:
+            lines.append("<i>Belum ada Groq API Key terdaftar.</i>")
+        else:
+            for k in all_keys:
+                status_icon = "🟢" if k["is_active"] == 1 else "🔴"
+                err_str = f"⚠️ Err: {k['error_count']}" if k['error_count'] > 0 else "✅ No Err"
+                lines.append(
+                    f"{status_icon} <b>[ID #{k['id']}]</b> <code>{k['api_key_masked']}</code> | {err_str} | Use: {k['usage_count']}"
+                )
+
+        lines.append("\n💡 <i>Gunakan <code>/ai delgroq [ID]</code> untuk menghapus key Groq tertentu.</i>")
+        lines.append("💡 <i>Gunakan <code>/ai clearkeys</code> untuk pembersihan massal 1-klik!</i>")
+
         kb = build_sub_dashboard_keyboard([
             [InlineKeyboardButton("🔑 Gemini Key Pool", callback_data="ask:keys")]
         ])
-        await ctx.respond(msg, keyboard=kb)
+        await ctx.respond("\n".join(lines), keyboard=kb)
 
     # ---- HERMES DYNAMIC SKILL ENGINE HANDLERS ----
 
@@ -419,22 +434,37 @@ class AIAssistantHandlers:
         await ctx.respond(msg, keyboard=kb)
 
     async def _handle_list_keys(self, ctx: CommandContext) -> None:
-        """Lihat status & kesehatan Key Pool di SQLite."""
+        """Lihat status & kesehatan Gemini Key Pool di SQLite beserta ID dan Error Count."""
         stats = await self.service.repo.get_keys_stats()
-        msg = (
-            "🔑 <b>Statistik SQLite Gemini API Key Pool</b>\n\n"
-            f"🟢 <b>Key Aktif:</b> <code>{stats['active_keys']} Key</code>\n"
-            f"🔴 <b>Key Mati (Kuota Habis/Error):</b> <code>{stats['inactive_keys']} Key</code>\n"
-            f"📦 <b>Total Key Terdaftar:</b> <code>{stats['total_keys']} Key</code>\n"
-            f"⚡ <b>Total Permintaan Ditangani:</b> <code>{stats['total_usage']} request</code>\n"
-        )
+        all_keys = await self.service.repo.get_all_gemini_keys(limit=30)
+
+        lines = [
+            "🔑 <b>Statistik SQLite Gemini API Key Pool</b>\n",
+            f"🟢 <b>Key Aktif:</b> <code>{stats['active_keys']}</code> | 🔴 <b>Mati:</b> <code>{stats['inactive_keys']}</code> | 📦 <b>Total:</b> <code>{stats['total_keys']}</code>",
+            f"⚡ <b>Total Permintaan:</b> <code>{stats['total_usage']} request</code>\n",
+            "📋 <b>Daftar Gemini Key & Jumlah Error:</b>",
+        ]
+
+        if not all_keys:
+            lines.append("<i>Belum ada Gemini API Key terdaftar.</i>")
+        else:
+            for k in all_keys:
+                status_icon = "🟢" if k["is_active"] == 1 else "🔴"
+                err_str = f"⚠️ Err: {k['error_count']}" if k['error_count'] > 0 else "✅ No Err"
+                lines.append(
+                    f"{status_icon} <b>[ID #{k['id']}]</b> <code>{k['api_key_masked']}</code> | {err_str} | Use: {k['usage_count']}"
+                )
+
+        lines.append("\n💡 <i>Gunakan <code>/ai delkey [ID]</code> untuk menghapus key Gemini tertentu.</i>")
+        lines.append("💡 <i>Gunakan <code>/ai clearkeys</code> untuk pembersihan massal 1-klik!</i>")
+
         kb = build_sub_dashboard_keyboard([
             [InlineKeyboardButton("⚡ Groq Backup Pool", callback_data="ask:groqkeys")]
         ])
-        await ctx.respond(msg, keyboard=kb)
+        await ctx.respond("\n".join(lines), keyboard=kb)
 
     async def _handle_delete_key(self, ctx: CommandContext, args: list[str]) -> None:
-        """Hapus key tertentu berdasarkan ID atau string Key."""
+        """Hapus key Gemini tertentu berdasarkan ID atau string Key."""
         if not args:
             await ctx.bot_gateway.send_message(
                 ctx.chat_id, "❌ Format: <code>/ai delkey [ID|API_Key]</code>"
@@ -444,18 +474,40 @@ class AIAssistantHandlers:
         ok = await self.service.repo.delete_key(args[0])
         if ok:
             await ctx.bot_gateway.send_message(
-                ctx.chat_id, f"🗑️ API Key <code>{escape_html(args[0])}</code> berhasil dihapus dari SQLite."
+                ctx.chat_id, f"🗑️ Gemini API Key <code>{escape_html(args[0])}</code> berhasil dihapus dari SQLite."
             )
         else:
             await ctx.bot_gateway.send_message(
-                ctx.chat_id, f"❌ API Key <code>{escape_html(args[0])}</code> tidak ditemukan."
+                ctx.chat_id, f"❌ Gemini API Key <code>{escape_html(args[0])}</code> tidak ditemukan."
+            )
+
+    async def _handle_delete_groq_key(self, ctx: CommandContext, args: list[str]) -> None:
+        """Hapus key Groq tertentu berdasarkan ID atau string Key."""
+        if not args:
+            await ctx.bot_gateway.send_message(
+                ctx.chat_id, "❌ Format: <code>/ai delgroq [ID|API_Key]</code>"
+            )
+            return
+
+        ok = await self.service.repo.delete_groq_key(args[0])
+        if ok:
+            await ctx.bot_gateway.send_message(
+                ctx.chat_id, f"🗑️ Groq API Key <code>{escape_html(args[0])}</code> berhasil dihapus dari SQLite."
+            )
+        else:
+            await ctx.bot_gateway.send_message(
+                ctx.chat_id, f"❌ Groq API Key <code>{escape_html(args[0])}</code> tidak ditemukan."
             )
 
     async def _handle_clear_keys(self, ctx: CommandContext) -> None:
-        """Pembersihan key mati."""
-        cnt = await self.service.repo.clear_inactive_keys()
+        """Pembersihan massal seluruh key mati/error (Gemini & Groq)."""
+        cnt_gemini = await self.service.repo.clear_inactive_keys()
+        cnt_groq = await self.service.repo.clear_inactive_groq_keys()
         await ctx.bot_gateway.send_message(
-            ctx.chat_id, f"🧹 Berhasil membersihkan <code>{cnt}</code> API key yang dinonaktifkan dari SQLite."
+            ctx.chat_id,
+            f"🧹 <b>Pembersihan Key Mati Selesai!</b>\n\n"
+            f"🗑️ <b>Gemini Key Dihapus:</b> <code>{cnt_gemini} Key</code>\n"
+            f"🗑️ <b>Groq Key Dihapus:</b> <code>{cnt_groq} Key</code>",
         )
 
     async def _handle_remember(self, ctx: CommandContext, args: list[str]) -> None:

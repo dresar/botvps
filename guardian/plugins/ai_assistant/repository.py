@@ -273,6 +273,62 @@ class AIMemoryRepository(BaseRepository):
             "total_usage": usage_row["total_use"] if usage_row and usage_row["total_use"] else 0,
         }
 
+    async def delete_groq_key(self, key_or_id: str) -> bool:
+        """Hapus Groq API Key dari SQLite."""
+        clean = key_or_id.strip()
+        if clean.isdigit():
+            cursor = await self._db.execute("DELETE FROM groq_api_keys WHERE id = ?", (int(clean),))
+        else:
+            cursor = await self._db.execute("DELETE FROM groq_api_keys WHERE api_key = ?", (clean,))
+        return cursor.rowcount > 0
+
+    async def clear_inactive_groq_keys(self) -> int:
+        """Hapus seluruh Groq API Key mati atau error."""
+        cursor = await self._db.execute("DELETE FROM groq_api_keys WHERE is_active = 0 OR error_count > 0")
+        return cursor.rowcount
+
+    async def get_all_gemini_keys(self, limit: int = 50) -> list[dict[str, Any]]:
+        """Ambil daftar Gemini API Key beserta ID, error_count, dan status."""
+        rows = await self._db.fetch_all(
+            """SELECT id, api_key, usage_count, error_count, is_active, last_error
+               FROM gemini_api_keys
+               ORDER BY is_active DESC, error_count ASC, id ASC
+               LIMIT ?""",
+            (limit,),
+        )
+        return [
+            {
+                "id": r["id"],
+                "api_key_masked": r["api_key"][:10] + "..." + r["api_key"][-4:] if len(r["api_key"]) > 14 else r["api_key"],
+                "usage_count": r["usage_count"],
+                "error_count": r["error_count"],
+                "is_active": r["is_active"],
+                "last_error": r["last_error"],
+            }
+            for r in rows
+        ]
+
+    async def get_all_groq_keys(self, limit: int = 50) -> list[dict[str, Any]]:
+        """Ambil daftar Groq API Key beserta ID, error_count, dan status."""
+        rows = await self._db.fetch_all(
+            """SELECT id, api_key, usage_count, error_count, is_active, last_error
+               FROM groq_api_keys
+               ORDER BY is_active DESC, error_count ASC, id ASC
+               LIMIT ?""",
+            (limit,),
+        )
+        return [
+            {
+                "id": r["id"],
+                "api_key_masked": r["api_key"][:10] + "..." + r["api_key"][-4:] if len(r["api_key"]) > 14 else r["api_key"],
+                "usage_count": r["usage_count"],
+                "error_count": r["error_count"],
+                "is_active": r["is_active"],
+                "last_error": r["last_error"],
+            }
+            for r in rows
+        ]
+
     # ---- HERMES DYNAMIC SKILL ENGINE ----
 
     async def add_skill(
