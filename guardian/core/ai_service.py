@@ -1,5 +1,6 @@
 """AIService — Official Google AI Studio Gemini API & Groq Backup Integration untuk Serverinka Guardian."""
 
+import base64
 from typing import TYPE_CHECKING, Any
 
 import httpx
@@ -14,10 +15,10 @@ logger = structlog.get_logger(__name__)
 
 
 class AIService:
-    """Service untuk interaksi dengan Google Gemini 2.5 Flash & Groq AI (Llama 3.3 70B).
+    """Service untuk interaksi dengan Google Gemini 2.5 Flash & Groq AI (Llama 3.3 70B & Vision).
 
     Menggunakan httpx.AsyncClient untuk komunikasi async non-blocking.
-    Mendukung rotasi API Key dari SQLite Key Pool.
+    Mendukung rotasi API Key dari SQLite Key Pool & Multimodal Vision.
 
     Args:
         settings: GuardianSettings instance.
@@ -39,6 +40,8 @@ class AIService:
         provider: str | None = None,
         model: str | None = None,
         temperature: float = 0.7,
+        media_bytes: bytes | None = None,
+        mime_type: str | None = None,
     ) -> str:
         """Kirim permintaan Chat Completion ke Google AI Studio atau Groq AI API.
 
@@ -49,6 +52,8 @@ class AIService:
             provider: Provider AI ('gemini', 'groq', 'openai').
             model: Model AI yang ingin digunakan.
             temperature: Parameter kreativitas response.
+            media_bytes: Bytes file gambar, foto, atau dokumen.
+            mime_type: MIME type media (misal: 'image/jpeg', 'application/pdf', 'text/plain').
 
         Returns:
             Teks respon dari AI.
@@ -75,9 +80,18 @@ class AIService:
             endpoint = f"https://generativelanguage.googleapis.com/v1beta/models/{target_model}:generateContent?key={target_key}"
 
             contents = []
-            for msg in messages:
+            for i, msg in enumerate(messages):
                 role = "user" if msg.get("role") == "user" else "model"
-                contents.append({"role": role, "parts": [{"text": msg.get("content", "")}]})
+                parts: list[dict[str, Any]] = [{"text": msg.get("content", "")}]
+                if i == len(messages) - 1 and media_bytes:
+                    b64_data = base64.b64encode(media_bytes).decode("utf-8")
+                    parts.append({
+                        "inlineData": {
+                            "mime_type": mime_type or "image/jpeg",
+                            "data": b64_data,
+                        }
+                    })
+                contents.append({"role": role, "parts": parts})
 
             body: dict[str, Any] = {
                 "contents": contents,
@@ -132,9 +146,32 @@ class AIService:
             endpoint = "https://api.groq.com/openai/v1/chat/completions"
 
             full_messages = []
-            if system_prompt:
-                full_messages.append({"role": "system", "content": system_prompt})
-            full_messages.extend(messages)
+            if media_bytes:
+                # Otomatis gunakan Groq Vision Model jika terdapat media gambar/foto
+                target_model = "llama-3.2-11b-vision-preview"
+                b64_data = base64.b64encode(media_bytes).decode("utf-8")
+                data_url = f"data:{mime_type or 'image/jpeg'};base64,{b64_data}"
+
+                vision_messages = []
+                for msg in messages[:-1]:
+                    vision_messages.append(msg)
+
+                last_user_prompt = messages[-1].get("content", "") if messages else ""
+                vision_messages.append({
+                    "role": "user",
+                    "content": [
+                        {"type": "text", "text": last_user_prompt},
+                        {"type": "image_url", "image_url": {"url": data_url}},
+                    ],
+                })
+                if system_prompt:
+                    full_messages = [{"role": "system", "content": system_prompt}] + vision_messages
+                else:
+                    full_messages = vision_messages
+            else:
+                if system_prompt:
+                    full_messages.append({"role": "system", "content": system_prompt})
+                full_messages.extend(messages)
 
             headers = {
                 "Content-Type": "application/json",

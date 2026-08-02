@@ -77,3 +77,20 @@ async def test_add_and_get_skills(mock_app_ctx):
     )
     assert sk["id"] == 1
     assert sk["skill_name"] == "Penghemat RAM"
+
+
+@pytest.mark.asyncio
+async def test_multimodal_vision_support(mock_app_ctx):
+    service = AIAssistantService(mock_app_ctx)
+    service.ai_client.chat_completion = AsyncMock(return_value="Hasil analisis gambar: RAM overload 95%")
+
+    dummy_image_bytes = b"\xff\xd8\xff\xe0\x00\x10JFIF"
+    res = await service.ask_ai(
+        telegram_id=7896674035,
+        user_prompt="Analisis foto error ini",
+        media_bytes=dummy_image_bytes,
+        mime_type="image/jpeg",
+    )
+    assert "Hasil analisis gambar" in res
+    service.ai_client.chat_completion.assert_called_once()
+

@@ -103,16 +103,23 @@ class AIAssistantService(BaseService):
         )
         return system_prompt
 
-    async def ask_ai(self, telegram_id: int, user_prompt: str) -> str:
-        """Kirim pertanyaan pengguna ke AI dengan memori & konteks histori percakapan."""
+    async def ask_ai(
+        self,
+        telegram_id: int,
+        user_prompt: str,
+        media_bytes: bytes | None = None,
+        mime_type: str | None = None,
+    ) -> str:
+        """Kirim pertanyaan pengguna ke AI dengan memori, konteks histori percakapan, & Multimodal Media."""
         # 0. Otomatis deteksi jika pesan berisi API key (pesan terpotong Telegram)
-        auto_imported = await self._auto_detect_and_import_keys(user_prompt)
-        if auto_imported:
-            return auto_imported
+        if not media_bytes:
+            auto_imported = await self._auto_detect_and_import_keys(user_prompt)
+            if auto_imported:
+                return auto_imported
 
-        # 1. Otomatis deteksi jika user memberikan instruksi/memori baru atau jadwal pengingat
-        await self._auto_detect_and_save_memory(telegram_id, user_prompt)
-        await self._auto_detect_and_schedule_task(telegram_id, user_prompt)
+            # 1. Otomatis deteksi jika user memberikan instruksi/memori baru atau jadwal pengingat
+            await self._auto_detect_and_save_memory(telegram_id, user_prompt)
+            await self._auto_detect_and_schedule_task(telegram_id, user_prompt)
 
         # 2. Ambil histori percakapan (Short-Term Memory)
         history = await self.repo.get_recent_chat_history(telegram_id, limit=8)
@@ -123,7 +130,12 @@ class AIAssistantService(BaseService):
         system_prompt = await self.build_system_context_prompt(telegram_id)
 
         # 4. Panggil AI Client dengan Multi-Tier Rotation (Gemini Pool -> Groq Backup Pool -> Config)
-        raw_response = await self._call_ai_with_multi_tier_fallback(messages, system_prompt)
+        raw_response = await self._call_ai_with_multi_tier_fallback(
+            messages=messages,
+            system_prompt=system_prompt,
+            media_bytes=media_bytes,
+            mime_type=mime_type,
+        )
 
         # 5. Simpan percakapan ke Short-Term Memory
         await self.repo.add_chat_turn(telegram_id, "user", user_prompt)
@@ -132,7 +144,11 @@ class AIAssistantService(BaseService):
         return self._format_markdown_to_telegram_html(raw_response)
 
     async def _call_ai_with_multi_tier_fallback(
-        self, messages: list[dict[str, str]], system_prompt: str
+        self,
+        messages: list[dict[str, str]],
+        system_prompt: str,
+        media_bytes: bytes | None = None,
+        mime_type: str | None = None,
     ) -> str:
         """Multi-Tier Provider Fallback Router: Gemini Pool -> Groq Backup Pool -> Config Fallback."""
         last_exception: Exception | None = None
@@ -151,6 +167,8 @@ class AIAssistantService(BaseService):
                     api_key=api_key,
                     provider="gemini",
                     temperature=0.7,
+                    media_bytes=media_bytes,
+                    mime_type=mime_type,
                 )
                 await self.repo.record_key_success(api_key)
                 return raw_response
@@ -164,7 +182,7 @@ class AIAssistantService(BaseService):
                 )
                 await self.repo.record_key_error(api_key, str(e), getattr(e, "status_code", 0))
 
-        # ---- TIER 2: GROQ AI BACKUP SQLITE KEY POOL (Llama 3.3 70B) ----
+        # ---- TIER 2: GROQ AI BACKUP SQLITE KEY POOL (Llama 3.3 70B & Vision) ----
         max_groq_attempts = 5
         for attempt in range(max_groq_attempts):
             groq_key, groq_model = await self.repo.get_next_groq_key()
@@ -180,6 +198,8 @@ class AIAssistantService(BaseService):
                     provider="groq",
                     model=groq_model or "llama-3.3-70b-versatile",
                     temperature=0.7,
+                    media_bytes=media_bytes,
+                    mime_type=mime_type,
                 )
                 await self.repo.record_groq_success(groq_key)
                 return raw_response

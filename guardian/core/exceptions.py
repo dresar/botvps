@@ -165,6 +165,10 @@ class AIProviderNotConfiguredError(AIError):
 class AIProviderError(AIError):
     """API call ke AI provider gagal."""
 
+    def __init__(self, message: str, detail: str = "", status_code: int = 0) -> None:
+        super().__init__(message, detail=detail)
+        self.status_code = status_code
+
 
 # ---- Scheduler Errors ----
 

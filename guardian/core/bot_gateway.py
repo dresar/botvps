@@ -325,6 +325,8 @@ class BotGateway:
         """
         if update.message and update.message.text:
             await self._handle_message(update)
+        elif update.message and (update.message.photo or update.message.document):
+            await self._handle_media_message(update)
         elif update.callback_query:
             await self._handle_callback(update)
 
@@ -377,6 +379,69 @@ class BotGateway:
             return
 
         await self._route_command(update, user, chat_id, text)
+
+    async def _handle_media_message(self, update: Update) -> None:
+        """Handle media masuk (Foto / Dokumen) untuk Multimodal AI Analysis."""
+        message = update.message
+        if not message or not message.from_user:
+            return
+
+        telegram_user = message.from_user
+        chat_id = message.chat_id
+        caption = message.caption or "Tolong analisis foto/dokumen ini secara detail dan berikan solusinya."
+
+        auth_result = await self._ctx.auth.authenticate(
+            telegram_id=telegram_user.id,
+            username=telegram_user.username,
+            full_name=telegram_user.full_name,
+        )
+        if not auth_result.is_authorized or not auth_result.user:
+            await self.send_message(chat_id, build_denied_message(auth_result.denial_reason or ""))
+            return
+
+        user = auth_result.user
+        await self.send_chat_action(chat_id, "typing")
+        status_msg = await self.send_message(chat_id, "🖼️ <b>Menganalisis foto/dokumen dengan Multimodal AI...</b>")
+
+        try:
+            media_bytes = None
+            mime_type = "image/jpeg"
+
+            if message.photo:
+                photo_file = await message.photo[-1].get_file()
+                media_bytes = await photo_file.download_as_bytearray()
+                mime_type = "image/jpeg"
+            elif message.document:
+                doc_file = await message.document.get_file()
+                media_bytes = await doc_file.download_as_bytearray()
+                mime_type = message.document.mime_type or "application/octet-stream"
+
+            if not media_bytes:
+                await self.send_message(chat_id, "❌ Gagal mengunduh file media.")
+                return
+
+            from guardian.plugins.ai_assistant.service import AIAssistantService
+            ai_service = AIAssistantService(self._ctx)
+
+            response_html = await ai_service.ask_ai(
+                telegram_id=user.telegram_id,
+                user_prompt=caption,
+                media_bytes=bytes(media_bytes),
+                mime_type=mime_type,
+            )
+
+            if status_msg:
+                await self.edit_message_text(chat_id, status_msg.message_id, response_html)
+            else:
+                await self.send_message(chat_id, response_html)
+
+        except Exception as e:
+            logger.exception("Gagal memproses media Multimodal AI.")
+            err_msg = f"❌ <b>Gagal Menganalisis Media:</b> {escape_html(str(e))}"
+            if status_msg:
+                await self.edit_message_text(chat_id, status_msg.message_id, err_msg)
+            else:
+                await self.send_message(chat_id, err_msg)
 
     async def _handle_callback(self, update: Update) -> None:
         """Handle callback query dari inline keyboard."""
