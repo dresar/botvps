@@ -17,6 +17,7 @@ from telegram.error import TelegramError
 
 from guardian.core.auth_service import AuthResult, UserDTO
 from guardian.core.exceptions import RateLimitError
+from guardian.utils.formatters import escape_html
 from guardian.utils.message_builder import build_denied_message, split_long_message
 
 if TYPE_CHECKING:
