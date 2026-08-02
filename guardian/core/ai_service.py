@@ -94,9 +94,10 @@ class AIService:
                 parts: list[dict[str, Any]] = [{"text": msg.get("content", "")}]
                 if i == len(messages) - 1 and media_bytes:
                     b64_data = base64.b64encode(media_bytes).decode("utf-8")
+                    clean_mime = (mime_type or "image/jpeg").split(";")[0].strip()
                     parts.append({
                         "inlineData": {
-                            "mime_type": mime_type or "image/jpeg",
+                            "mime_type": clean_mime,
                             "data": b64_data,
                         }
                     })
