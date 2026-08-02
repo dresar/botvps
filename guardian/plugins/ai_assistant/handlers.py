@@ -2,9 +2,9 @@
 
 import structlog
 
-from guardian.core.ai_service import AIService
 from guardian.core.bot_gateway import CommandContext
 from guardian.core.exceptions import AIProviderError, AIProviderNotConfiguredError
+from guardian.plugins.ai_assistant.service import AIAssistantService
 from guardian.utils.formatters import escape_html
 from guardian.utils.keyboard_builder import nav_row
 from telegram import InlineKeyboardMarkup
@@ -15,34 +15,28 @@ logger = structlog.get_logger(__name__)
 class AIAssistantHandlers:
     """Handlers untuk plugin ai_assistant."""
 
+    def __init__(self, service: AIAssistantService) -> None:
+        self.service = service
+
     async def handle_ask(self, ctx: CommandContext) -> None:
-        """Tanya AI Assistant (Gemini 2.5 Flash). Syntax: /ask [pertanyaan]"""
+        """Tanya AI Assistant (Gemini 2.5 Flash). Syntax: /ask [pertanyaan] atau /ai [pertanyaan]"""
         if not ctx.args:
             await ctx.bot_gateway.send_message(
                 ctx.chat_id,
-                "🤖 <b>AI Assistant (Gemini 2.5 Flash)</b>\n\n"
-                "<b>Penggunaan:</b> <code>/ask [pertanyaan_anda]</code>\n"
-                "<b>Contoh:</b> <code>/ask Bagaimana cara cek port terpakai di Linux?</code>",
+                "🤖 <b>Serverinka AI Assistant (Gemini 2.5 Flash)</b>\n\n"
+                "<b>Penggunaan:</b> <code>/ask [pertanyaan_anda]</code> atau <code>/ai [pertanyaan_anda]</code>\n"
+                "<b>Contoh:</b> <code>/ask Bagaimana kondisi RAM dan disk VPS saat ini?</code>",
             )
             return
 
         user_prompt = " ".join(ctx.args)
         loading_msg = await ctx.bot_gateway.send_message(
-            ctx.chat_id, "🧠 <i>Gemini sedang berpikir...</i>"
+            ctx.chat_id, "🧠 <i>Gemini sedang menganalisis VPS & memproses jawaban...</i>"
         )
 
-        ai_service = AIService(ctx.app_ctx.settings)
-
         try:
-            response_text = await ai_service.chat_completion(
-                messages=[{"role": "user", "content": user_prompt}],
-                system_prompt=(
-                    "Kamu adalah Serverinka Assistant, AI asisten sysadmin Linux profesional "
-                    "yang ramah, sigap, dan ahli dalam Linux, VPS, Docker, serta DevOps."
-                ),
-            )
-
-            formatted_text = f"🤖 <b>Serverinka AI</b>\n\n{escape_html(response_text)}"
+            response_text = await self.service.ask_ai(user_prompt)
+            formatted_text = f"🤖 <b>Serverinka AI</b>\n\n{response_text}"
             kb = InlineKeyboardMarkup([nav_row(main_menu=True)])
 
             if loading_msg:

@@ -16,6 +16,9 @@ logger = structlog.get_logger(__name__)
 class AIAssistantPlugin(BasePlugin):
     """Plugin AI Chat Assistant untuk menjawab pertanyaan seputar sistem & VPS."""
 
+    def __init__(self) -> None:
+        self._service: AIAssistantService | None = None
+
     @property
     def name(self) -> str:
         return "ai_assistant"
@@ -35,7 +38,10 @@ class AIAssistantPlugin(BasePlugin):
     async def setup(self, ctx: "ApplicationContext") -> None:
         """Daftarkan command AI."""
         from guardian.plugins.ai_assistant.handlers import AIAssistantHandlers
-        h = AIAssistantHandlers()
+        from guardian.plugins.ai_assistant.service import AIAssistantService
+
+        self._service = AIAssistantService(ctx)
+        h = AIAssistantHandlers(self._service)
 
         ctx.plugin_manager.register_command(
             namespace="ask",
@@ -56,9 +62,10 @@ class AIAssistantPlugin(BasePlugin):
 
     async def health_check(self) -> PluginHealth:
         """Cek kesehatan AI plugin."""
+        is_healthy = self._service is not None and self._service.ai_client.is_enabled
         return PluginHealth(
             plugin_name=self.name,
-            status="healthy",
-            message="AI Assistant Plugin aktif.",
+            status="healthy" if is_healthy else "degraded",
+            message="AI Assistant Siap." if is_healthy else "AI Assistant Disabled.",
             checked_at=datetime.utcnow(),
         )
