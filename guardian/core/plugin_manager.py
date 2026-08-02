@@ -273,17 +273,17 @@ class PluginManager:
         """Panggil setup() untuk setiap plugin secara berurutan."""
         for plugin in plugins:
             try:
-                logger.info("Memuat plugin...", name=plugin.name, version=plugin.version)
+                logger.info("🔌 Memuat plugin...", name=plugin.name, version=plugin.version)
                 await plugin.setup(ctx)
                 self._plugins[plugin.name] = plugin
                 self._load_order.append(plugin.name)
-                logger.info("Plugin berhasil dimuat.", name=plugin.name)
+                logger.info("✅ Plugin berhasil dimuat.", name=plugin.name)
 
                 await ctx.event_bus.publish(
                     "system.plugin_loaded", {"plugin_name": plugin.name}
                 )
             except Exception as e:
-                logger.exception("Plugin gagal dimuat. Dilewati.", name=plugin.name, error=str(e))
+                logger.exception("❌ Plugin gagal dimuat. Dilewati.", name=plugin.name, error=str(e))
                 await ctx.event_bus.publish(
                     "system.plugin_error",
                     {"plugin_name": plugin.name, "error": str(e)},
