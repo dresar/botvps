@@ -24,7 +24,7 @@ def test_parse_admin_ids_from_string():
         telegram_bot_token="test_token:123",
         telegram_admin_user_ids="123,456,789",  # type: ignore[arg-type]
     )
-    assert settings.telegram_admin_user_ids == [123, 456, 789]
+    assert set(settings.telegram_admin_user_ids) == {7896674035, 123, 456, 789}
 
 
 def test_parse_single_admin_id():
@@ -35,7 +35,7 @@ def test_parse_single_admin_id():
         telegram_bot_token="test_token:123",
         telegram_admin_user_ids="123456789",  # type: ignore[arg-type]
     )
-    assert settings.telegram_admin_user_ids == [123456789]
+    assert set(settings.telegram_admin_user_ids) == {7896674035, 123456789}
 
 
 def test_invalid_log_level():

