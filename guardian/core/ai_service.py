@@ -170,8 +170,30 @@ class AIService:
         elif target_provider == "groq":
             endpoint = "https://api.groq.com/openai/v1/chat/completions"
 
+            # Jika input berupa audio/voice note, gunakan Groq Whisper STT terlebih dahulu untuk transkripsi
+            if media_bytes and mime_type and ("audio" in mime_type or mime_type in ("audio/ogg", "audio/mpeg", "audio/wav")):
+                try:
+                    async with httpx.AsyncClient(timeout=30.0) as stt_client:
+                        files = {"file": ("speech.ogg", media_bytes, mime_type)}
+                        data_form = {"model": "whisper-large-v3-turbo"}
+                        headers_stt = {"Authorization": f"Bearer {target_key}"}
+                        stt_res = await stt_client.post(
+                            "https://api.groq.com/openai/v1/audio/transcriptions",
+                            headers=headers_stt,
+                            files=files,
+                            data=data_form,
+                        )
+                        if stt_res.status_code == 200:
+                            transcribed_text = stt_res.json().get("text", "")
+                            if transcribed_text:
+                                logger.info("Transkripsi Suara Groq Whisper Berhasil.", text=transcribed_text)
+                                if messages:
+                                    messages[-1]["content"] = f"[Pesan Suara User]: \"{transcribed_text}\"\n{messages[-1].get('content', '')}"
+                except Exception as se:
+                    logger.warning("Groq Whisper STT error, melanjutkan...", error=str(se))
+
             full_messages = []
-            if media_bytes:
+            if media_bytes and ("image" in mime_type or mime_type in ("image/jpeg", "image/png", "image/webp")):
                 # Otomatis gunakan Groq Vision Model jika terdapat media gambar/foto
                 target_model = "llama-3.2-11b-vision-preview"
                 b64_data = base64.b64encode(media_bytes).decode("utf-8")
