@@ -76,6 +76,8 @@ su - serverinka -c "cd $INSTALL_DIR && /usr/local/bin/uv sync"
 if [ ! -f "$CONFIG_DIR/guardian.env" ]; then
     log_info "Membuat template konfigurasi di $CONFIG_DIR/guardian.env..."
     cp "$INSTALL_DIR/.env.example" "$CONFIG_DIR/guardian.env"
+    sed -i 's|DATABASE_PATH=./guardian.db|DATABASE_PATH=/var/lib/serverinka/guardian.db|g' "$CONFIG_DIR/guardian.env"
+    sed -i 's|BACKUP_PATH=./backups|BACKUP_PATH=/var/lib/serverinka/backups|g' "$CONFIG_DIR/guardian.env"
     chmod 600 "$CONFIG_DIR/guardian.env"
     chown serverinka:serverinka "$CONFIG_DIR/guardian.env"
     log_warn "PASTIKAN Anda mengedit $CONFIG_DIR/guardian.env sebelum menjalankan service!"
