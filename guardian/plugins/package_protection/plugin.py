@@ -56,10 +56,7 @@ class PackageProtectionPlugin(BasePlugin):
                 except Exception:
                     pass
 
-        # 1. Startup Scanner: Jalankan pemindaian otomatis saat bot menyala / VPS reboot
-        asyncio.create_task(self._run_startup_scan())
-
-        # 2. Scheduled Scanner: Pemindaian berkala (default setiap 10 menit)
+        # Scheduled Scanner: Pemindaian berkala di background (default setiap 10 menit)
         interval_min = ctx.settings.package_scan_interval_minutes
         ctx.scheduler.add_interval_job(
             job_id="package_protection.periodic_scan",
@@ -68,16 +65,6 @@ class PackageProtectionPlugin(BasePlugin):
         )
 
         logger.info("PackageProtectionPlugin siap.", scan_interval_minutes=interval_min)
-
-    async def _run_startup_scan(self) -> None:
-        """Jalankan startup scan setelah delay singkat saat booting."""
-        await asyncio.sleep(3)
-        if self._service:
-            try:
-                logger.info("Menjalankan Startup Scanner Package Protection...")
-                await self._service.run_full_scan()
-            except Exception as e:
-                logger.warning("Startup scan selesai dengan peringatan.", error=str(e))
 
     async def health_check(self) -> PluginHealth:
         """Cek kesehatan plugin."""
