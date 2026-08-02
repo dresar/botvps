@@ -1,0 +1,18 @@
+# =====================================================================
+# SERVERINKA GUARDIAN — ATURAN SUDOERS HARDENED
+# Mengizinkan user 'serverinka' menjalankan perintah tertentu tanpa password
+# =====================================================================
+
+# Systemctl control untuk service umum (kecuali serverinka-guardian itu sendiri)
+serverinka ALL=(ALL) NOPASSWD: /bin/systemctl list-units *
+serverinka ALL=(ALL) NOPASSWD: /bin/systemctl status *
+serverinka ALL=(ALL) NOPASSWD: /bin/systemctl show *
+serverinka ALL=(ALL) NOPASSWD: /bin/systemctl start *
+serverinka ALL=(ALL) NOPASSWD: /bin/systemctl stop *
+serverinka ALL=(ALL) NOPASSWD: /bin/systemctl restart *
+
+# Access to journalctl
+serverinka ALL=(ALL) NOPASSWD: /bin/journalctl -u *
+
+# Reboot system (Hanya via command khusus)
+serverinka ALL=(ALL) NOPASSWD: /sbin/reboot, /sbin/shutdown
