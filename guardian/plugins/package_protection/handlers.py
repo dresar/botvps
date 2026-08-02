@@ -6,7 +6,7 @@ from guardian.core.bot_gateway import CommandContext
 from guardian.plugins.package_protection.service import PackageProtectionService
 from guardian.utils.formatters import escape_html
 from guardian.utils.keyboard_builder import nav_row
-from telegram import InlineKeyboardMarkup
+from telegram import InlineKeyboardButton, InlineKeyboardMarkup
 
 logger = structlog.get_logger(__name__)
 

@@ -73,8 +73,11 @@ class PackageProtectionPlugin(BasePlugin):
         """Jalankan startup scan setelah delay singkat saat booting."""
         await asyncio.sleep(3)
         if self._service:
-            logger.info("Menjalankan Startup Scanner Package Protection...")
-            await self._service.run_full_scan()
+            try:
+                logger.info("Menjalankan Startup Scanner Package Protection...")
+                await self._service.run_full_scan()
+            except Exception as e:
+                logger.warning("Startup scan selesai dengan peringatan.", error=str(e))
 
     async def health_check(self) -> PluginHealth:
         """Cek kesehatan plugin."""

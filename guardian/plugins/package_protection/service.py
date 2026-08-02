@@ -158,7 +158,12 @@ class PackageProtectionService(BaseService):
         # 1. Hapus Binaries & Symlinks
         for bin_path in set(filter(None, binary_locations)):
             p = Path(bin_path)
-            if p.exists() or p.is_symlink():
+            try:
+                exists_or_symlink = p.is_symlink() or p.exists()
+            except (PermissionError, OSError):
+                exists_or_symlink = False
+
+            if exists_or_symlink:
                 try:
                     p.unlink(missing_ok=True)
                     found_binaries.append(str(p))
@@ -168,7 +173,12 @@ class PackageProtectionService(BaseService):
 
         # 2. Hapus Directories (Config/Cache/Data)
         for target_dir in targets_dir:
-            if target_dir.exists():
+            try:
+                dir_exists = target_dir.exists()
+            except (PermissionError, OSError):
+                dir_exists = False
+
+            if dir_exists:
                 try:
                     if target_dir.is_dir():
                         shutil.rmtree(target_dir, ignore_errors=True)
