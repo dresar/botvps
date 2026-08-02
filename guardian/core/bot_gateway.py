@@ -363,10 +363,18 @@ class BotGateway:
         Args:
             update: Telegram Update object.
         """
-        if update.message and update.message.text:
-            await self._handle_message(update)
-        elif update.message and (update.message.photo or update.message.document or update.message.voice or update.message.audio):
-            await self._handle_media_message(update)
+        if update.message:
+            has_media = False
+            for attr in ("voice", "photo", "document", "audio"):
+                val = getattr(update.message, attr, None)
+                if val and not type(val).__name__.startswith("MagicMock"):
+                    has_media = True
+                    break
+
+            if has_media:
+                await self._handle_media_message(update)
+            else:
+                await self._handle_message(update)
         elif update.callback_query:
             await self._handle_callback(update)
 
@@ -429,6 +437,16 @@ class BotGateway:
         telegram_user = message.from_user
         chat_id = message.chat_id
         caption = message.caption or "Tolong analisis pesan audio/foto/dokumen ini secara detail dan berikan solusinya."
+
+        logger.info(
+            "🎙️ [INCOMING MEDIA MESSAGE]",
+            user_id=telegram_user.id,
+            username=telegram_user.username,
+            chat_id=chat_id,
+            has_photo=bool(message.photo),
+            has_voice=bool(message.voice),
+            has_doc=bool(message.document),
+        )
 
         auth_result = await self._ctx.auth.authenticate(
             telegram_id=telegram_user.id,

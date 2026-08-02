@@ -138,7 +138,7 @@ class GuardianEngine:
                 await bot_gateway.handle_update(update)
 
         telegram_app.add_handler(
-            MessageHandler(filters.TEXT & ~filters.COMMAND | filters.COMMAND, message_handler)
+            MessageHandler(filters.ALL, message_handler)
         )
         telegram_app.add_handler(CallbackQueryHandler(callback_handler))
 
