@@ -43,15 +43,28 @@ class AIAssistantPlugin(BasePlugin):
         self._service = AIAssistantService(ctx)
         h = AIAssistantHandlers(self._service)
 
-        for ns in ("ask", "ai"):
-            for cmd in ("menu", "ask", "help", "addkey", "addkeys", "keys", "keylist", "delkey", "clearkeys"):
+        for ns in ("ask", "ai", "groq"):
+            for cmd in ("menu", "ask", "help", "addkey", "addkeys", "keys", "keylist", "addgroq", "groqadd", "groqkeys", "delkey", "clearkeys"):
                 try:
                     ctx.plugin_manager.register_command(
                         namespace=ns,
                         command=cmd,
                         handler=h.handle_ask,
                         permissions=["system:read"],
-                        description="Tanya AI Assistant Gemini & Key Pool",
+                        description="Tanya AI Assistant Gemini, Groq & Key Pool",
+                    )
+                except Exception:
+                    pass
+
+        for ns in ("skill", "skills"):
+            for cmd in ("menu", "add", "list", "show", "edit", "del", "delete", "remove", "toggle"):
+                try:
+                    ctx.plugin_manager.register_command(
+                        namespace=ns,
+                        command=cmd,
+                        handler=h.handle_skill,
+                        permissions=["system:read"],
+                        description="Hermes Dynamic Skill Engine",
                     )
                 except Exception:
                     pass

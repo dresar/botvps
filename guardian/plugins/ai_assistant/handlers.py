@@ -1,4 +1,4 @@
-"""Handlers untuk plugin ai_assistant dengan Hermes Memory System & Gemini Key Pool Management."""
+"""Handlers untuk plugin ai_assistant dengan Hermes Memory System, Groq Backup, & Dynamic Skill Engine."""
 
 import re
 import structlog
@@ -20,7 +20,7 @@ class AIAssistantHandlers:
         self.service = service
 
     async def handle_ask(self, ctx: CommandContext) -> None:
-        """Tanya AI Assistant Hermes atau Kelola API Key Pool. Syntax: /ask [pertanyaan|subcommand]"""
+        """Tanya AI Assistant Hermes atau Kelola Key & Skills. Syntax: /ask [pertanyaan|subcommand]"""
         if not ctx.args:
             await self._show_help(ctx)
             return
@@ -40,6 +40,10 @@ class AIAssistantHandlers:
             await self._handle_add_keys(ctx, sub_args)
         elif sub in ("keys", "keylist", "listkeys"):
             await self._handle_list_keys(ctx)
+        elif sub in ("addgroq", "groqadd"):
+            await self._handle_add_groq_keys(ctx, sub_args)
+        elif sub in ("groqkeys", "groq"):
+            await self._handle_list_groq_keys(ctx)
         elif sub in ("delkey", "deletekey", "removekey"):
             await self._handle_delete_key(ctx, sub_args)
         elif sub in ("clearkeys", "clean"):
@@ -47,33 +51,72 @@ class AIAssistantHandlers:
         else:
             await self._handle_chat_query(ctx)
 
+    async def handle_skill(self, ctx: CommandContext) -> None:
+        """Handler utama untuk manajemen Hermes Dynamic Skill Engine (/skill)."""
+        if not ctx.args:
+            await self._handle_list_skills(ctx)
+            return
+
+        sub = ctx.args[0].lower()
+        args = ctx.args[1:]
+
+        if sub == "add":
+            await self._handle_add_skill(ctx, args)
+        elif sub in ("list", "show"):
+            await self._handle_list_skills(ctx)
+        elif sub == "edit":
+            await self._handle_edit_skill(ctx, args)
+        elif sub in ("del", "delete", "remove"):
+            await self._handle_delete_skill(ctx, args)
+        elif sub in ("toggle", "switch"):
+            await self._handle_toggle_skill(ctx, args)
+        else:
+            await ctx.bot_gateway.send_message(
+                ctx.chat_id,
+                "❌ <b>Format Perintah Skill:</b>\n"
+                "• <code>/skill add <Nama> | <Deskripsi> | <Instruksi></code>\n"
+                "• <code>/skill list</code>\n"
+                "• <code>/skill edit <ID> | <Instruksi Baru></code>\n"
+                "• <code>/skill del <ID></code>\n"
+                "• <code>/skill toggle <ID></code>",
+            )
+
     async def _show_help(self, ctx: CommandContext) -> None:
-        """Tampilkan bantuan AI Assistant, Hermes Memory & API Key Pool."""
-        stats = await self.service.repo.get_keys_stats()
+        """Tampilkan bantuan AI Assistant, Hermes Memory, Groq Backup & Skill Engine."""
+        gemini_stats = await self.service.repo.get_keys_stats()
+        groq_stats = await self.service.repo.get_groq_stats()
+        skills = await self.service.repo.get_skills(active_only=True)
+
         key_info = (
-            f"🔑 <b>Gemini Key Pool (SQLite):</b> <code>{stats['active_keys']} Aktif</code> / <code>{stats['total_keys']} Total</code>"
+            f"🔑 <b>Gemini Key Pool:</b> <code>{gemini_stats['active_keys']} Aktif</code> / <code>{gemini_stats['total_keys']} Total</code>\n"
+            f"⚡ <b>Groq Backup Pool:</b> <code>{groq_stats['active_keys']} Aktif</code> (Llama 3.3 70B)\n"
+            f"🛠️ <b>Dynamic Skills:</b> <code>{len(skills)} Skill Aktif</code>"
         )
 
         msg = (
-            "🤖 <b>Serverinka AI Assistant (Google Gemini 2.5 Flash)</b>\n\n"
+            "🤖 <b>Serverinka AI Assistant (Hermes Engine)</b>\n\n"
             f"{key_info}\n\n"
             "<b>Penggunaan AI Chat:</b>\n"
             "• <code>/ask [pertanyaan]</code> — Tanya AI dengan memori & konteks VPS real-time\n"
             "• Ketik chat biasa (misal: <code>halo</code>) — Langsung dijawab oleh AI!\n\n"
-            "🔑 <b>Manajemen API Key Pool (SQLite):</b>\n"
-            "• <code>/ai addkey [key1] [key2] ...</code> — Tambah 1 hingga 100+ API key Gemini\n"
-            "• <code>/ai keys</code> — Lihat statistik & kesehatan Key Pool\n"
-            "• <code>/ai delkey [ID|key]</code> — Hapus API Key dari SQLite\n"
-            "• <code>/ai clearkeys</code> — Hapus seluruh key mati/kuota habis\n\n"
-            "🧠 <b>Manajemen Memori (Hermes System):</b>\n"
-            "• <code>/ask remember [aturan]</code> — Catat memori / instruksi khusus\n"
-            "• <code>/ask memory</code> — Lihat seluruh memori tersimpan\n"
-            "• <code>/ask forget [ID|all]</code> — Hapus memori tersimpan\n"
-            "• <code>/ask clear</code> — Reset histori percakapan singkat"
+            "🛠️ <b>Hermes Dynamic Skill Engine:</b>\n"
+            "• <code>/skill add <Nama> | <Deskripsi> | <Instruksi></code> — Buat skill baru\n"
+            "• <code>/skill list</code> — Lihat daftar seluruh skill AI\n"
+            "• <code>/skill edit <ID> | <Instruksi></code> — Edit instruksi skill\n"
+            "• <code>/skill del <ID></code> — Hapus skill\n\n"
+            "🔑 <b>Manajemen Token & Key Pool (SQLite):</b>\n"
+            "• <code>/ai addkey [key1] [key2] ...</code> — Tambah Gemini API Key\n"
+            "• <code>/ai addgroq [key1] [key2] ...</code> — Tambah Groq API Key (Backup)\n"
+            "• <code>/ai keys</code> — Lihat status Gemini Key Pool\n"
+            "• <code>/ai groqkeys</code> — Lihat status Groq Backup Pool"
         )
         kb = build_sub_dashboard_keyboard([
             [
-                InlineKeyboardButton("🔑 Status Key Pool", callback_data="ask:keys"),
+                InlineKeyboardButton("🛠️ Daftar Skill AI", callback_data="ask:skills"),
+                InlineKeyboardButton("🔑 Gemini Key Pool", callback_data="ask:keys"),
+            ],
+            [
+                InlineKeyboardButton("⚡ Groq Backup Pool", callback_data="ask:groqkeys"),
                 InlineKeyboardButton("🧠 Memori AI", callback_data="ask:memory"),
             ]
         ])
@@ -84,7 +127,7 @@ class AIAssistantHandlers:
         user_prompt = " ".join(ctx.args).strip()
         if not user_prompt:
             raw = ctx.raw_text.strip()
-            for prefix in ("/ask", "/ai"):
+            for prefix in ("/ask", "/ai", "/skill"):
                 if raw.lower().startswith(prefix):
                     user_prompt = raw[len(prefix):].strip()
                     break
@@ -95,7 +138,6 @@ class AIAssistantHandlers:
             await self._show_help(ctx)
             return
 
-        # Kirim indikator typing ke Telegram
         await ctx.bot_gateway.send_chat_action(ctx.chat_id, "typing")
 
         loading_msg = await ctx.bot_gateway.send_message(
@@ -127,6 +169,199 @@ class AIAssistantHandlers:
                     ctx.chat_id, loading_msg.message_id, "❌ Terjadi kesalahan pada AI Service."
                 )
 
+    # ---- GROQ KEY POOL HANDLERS ----
+
+    async def _handle_add_groq_keys(self, ctx: CommandContext, args: list[str]) -> None:
+        """Tambah Groq API Key ke SQLite Key Pool."""
+        raw_input = " ".join(args).strip()
+        if not raw_input:
+            raw_input = ctx.raw_text.strip()
+            for pfx in ("/ai addgroq", "/ai groqadd", "/ask addgroq"):
+                if raw_input.lower().startswith(pfx):
+                    raw_input = raw_input[len(pfx):].strip()
+                    break
+
+        if not raw_input:
+            await ctx.bot_gateway.send_message(
+                ctx.chat_id,
+                "❌ <b>Format Salah.</b>\n\n"
+                "Gunakan format:\n"
+                "<code>/ai addgroq gsk_key1 gsk_key2 gsk_key3 ...</code>\n\n"
+                "<i>Groq AI digunakan sebagai backup otomatis saat Gemini habis kuota (Model: Llama 3.3 70B Versatile).</i>",
+            )
+            return
+
+        keys = [k.strip() for k in re.split(r"[\s,\n]+", raw_input) if k.strip()]
+
+        if not keys:
+            await ctx.bot_gateway.send_message(ctx.chat_id, "❌ Tidak ada API Key Groq valid yang ditemukan.")
+            return
+
+        added, duplicates = await self.service.repo.add_groq_keys(keys, model="llama-3.3-70b-versatile")
+        stats = await self.service.repo.get_groq_stats()
+
+        msg = (
+            f"⚡ <b>Berhasil Memproses Groq Backup Key Pool!</b>\n\n"
+            f"📥 <b>Diterima:</b> <code>{len(keys)} Key</code>\n"
+            f"➕ <b>Ditambahkan ke SQLite:</b> <code>{added} Key</code>\n"
+            f"⚠️ <b>Duplikat/Diabaikan:</b> <code>{duplicates} Key</code>\n\n"
+            f"📊 <b>Status Groq Backup Pool:</b>\n"
+            f"• Key Aktif: <code>{stats['active_keys']} / {stats['total_keys']}</code>\n"
+            f"• Model Default: <code>llama-3.3-70b-versatile</code>\n\n"
+            f"<i>Jika seluruh key Gemini habis kuota, AI otomatis berpindah ke Groq tanpa memutus chat!</i>"
+        )
+        kb = build_sub_dashboard_keyboard([
+            [InlineKeyboardButton("⚡ Lihat Groq Backup Pool", callback_data="ask:groqkeys")]
+        ])
+        await ctx.respond(msg, keyboard=kb)
+
+    async def _handle_list_groq_keys(self, ctx: CommandContext) -> None:
+        """Lihat status & kesehatan Groq Key Pool."""
+        stats = await self.service.repo.get_groq_stats()
+        msg = (
+            "⚡ <b>Statistik Groq Backup Key Pool (SQLite)</b>\n\n"
+            f"🟢 <b>Key Aktif:</b> <code>{stats['active_keys']} Key</code>\n"
+            f"📦 <b>Total Key Terdaftar:</b> <code>{stats['total_keys']} Key</code>\n"
+            f"⚡ <b>Total Permintaan Ditangani:</b> <code>{stats['total_usage']} request</code>\n"
+            f"🧠 <b>Model Trending:</b> <code>llama-3.3-70b-versatile</code>\n\n"
+            "<i>Digunakan otomatis sebagai cadangan saat Gemini mengalami rate limit/error!</i>"
+        )
+        kb = build_sub_dashboard_keyboard([
+            [InlineKeyboardButton("🔑 Gemini Key Pool", callback_data="ask:keys")]
+        ])
+        await ctx.respond(msg, keyboard=kb)
+
+    # ---- HERMES DYNAMIC SKILL ENGINE HANDLERS ----
+
+    async def _handle_add_skill(self, ctx: CommandContext, args: list[str]) -> None:
+        """Tambah skill AI baru. Format: /skill add <Nama> | <Deskripsi> | <Instruksi>"""
+        raw_input = " ".join(args).strip()
+        parts = [p.strip() for p in raw_input.split("|") if p.strip()]
+
+        if len(parts) < 2:
+            await ctx.bot_gateway.send_message(
+                ctx.chat_id,
+                "❌ <b>Format Tambah Skill Salah.</b>\n\n"
+                "Gunakan tanda <code>|</code> sebagai pemisah:\n"
+                "<code>/skill add Nama Skill | Deskripsi | Instruksi Detail Wajib AI</code>\n\n"
+                "Contoh:\n"
+                "<code>/skill add Penghemat RAM | Analisis hemat RAM | Selalu berikan 3 langkah optimasi RAM terbanyak</code>",
+            )
+            return
+
+        name = parts[0]
+        desc = parts[1] if len(parts) > 2 else "Skill Kustom"
+        instructions = parts[2] if len(parts) > 2 else parts[1]
+
+        sk = await self.service.repo.add_skill(skill_name=name, description=desc, instructions=instructions)
+
+        msg = (
+            f"🛠️ <b>Hermes Skill Berhasil Dibuat!</b>\n\n"
+            f"<b>ID Skill:</b> <code>#{sk['id']}</code>\n"
+            f"<b>Nama Skill:</b> <b>{escape_html(sk['skill_name'])}</b>\n"
+            f"<b>Deskripsi:</b> <i>{escape_html(sk['description'])}</i>\n"
+            f"<b>Instruksi:</b> <code>{escape_html(sk['instructions'])}</code>\n\n"
+            f"<i>AI akan langsung mengadopsi dan mematuhi skill ini pada percakapan mendatang!</i>"
+        )
+        kb = build_sub_dashboard_keyboard([
+            [InlineKeyboardButton("🛠️ Lihat Seluruh Skill", callback_data="ask:skills")]
+        ])
+        await ctx.respond(msg, keyboard=kb)
+
+    async def _handle_list_skills(self, ctx: CommandContext) -> None:
+        """Lihat daftar seluruh Hermes Dynamic Skills."""
+        skills = await self.service.repo.get_skills(active_only=False)
+        if not skills:
+            await ctx.bot_gateway.send_message(
+                ctx.chat_id,
+                "🛠️ <b>Belum ada Hermes Dynamic Skill yang terdaftar.</b>\n\n"
+                "Buat skill pertama Anda dengan perintah:\n"
+                "<code>/skill add Nama Skill | Deskripsi | Instruksi Detail</code>",
+            )
+            return
+
+        lines = ["🛠️ <b>Daftar Hermes Dynamic Skills (AI Capabilities)</b>\n"]
+        for sk in skills:
+            status_icon = "🟢" if sk["is_active"] == 1 else "🔴"
+            lines.append(
+                f"{status_icon} <b>ID #{sk['id']} — {escape_html(sk['skill_name'])}</b>\n"
+                f"📝 <i>{escape_html(sk['description'] or 'Tanpa deskripsi')}</i>\n"
+                f"📋 <code>{escape_html(sk['instructions'])}</code>\n"
+            )
+
+        lines.append(
+            "\n<i>Gunakan:</i>\n"
+            "• <code>/skill edit [ID] | [Instruksi Baru]</code>\n"
+            "• <code>/skill toggle [ID]</code> — Aktif/nonaktifkan\n"
+            "• <code>/skill del [ID]</code> — Hapus skill"
+        )
+        kb = build_sub_dashboard_keyboard()
+        await ctx.respond("\n".join(lines), keyboard=kb)
+
+    async def _handle_edit_skill(self, ctx: CommandContext, args: list[str]) -> None:
+        """Edit instruksi skill tertentu. Format: /skill edit <ID> | <Instruksi Baru>"""
+        raw_input = " ".join(args).strip()
+        parts = [p.strip() for p in raw_input.split("|", 1) if p.strip()]
+
+        if len(parts) < 2 or not parts[0].isdigit():
+            await ctx.bot_gateway.send_message(
+                ctx.chat_id, "❌ Format Edit: <code>/skill edit [ID_Skill] | [Instruksi Baru]</code>"
+            )
+            return
+
+        skill_id = int(parts[0])
+        new_instructions = parts[1]
+
+        ok = await self.service.repo.update_skill(skill_id, new_instructions)
+        if ok:
+            await ctx.bot_gateway.send_message(
+                ctx.chat_id, f"✅ Instruksi skill <b>#{skill_id}</b> berhasil diperbarui!"
+            )
+        else:
+            await ctx.bot_gateway.send_message(
+                ctx.chat_id, f"❌ Skill <b>#{skill_id}</b> tidak ditemukan."
+            )
+
+    async def _handle_delete_skill(self, ctx: CommandContext, args: list[str]) -> None:
+        """Hapus skill berdasarkan ID."""
+        if not args or not args[0].isdigit():
+            await ctx.bot_gateway.send_message(
+                ctx.chat_id, "❌ Format: <code>/skill del [ID_Skill]</code>"
+            )
+            return
+
+        skill_id = int(args[0])
+        ok = await self.service.repo.delete_skill(skill_id)
+        if ok:
+            await ctx.bot_gateway.send_message(
+                ctx.chat_id, f"🗑️ Skill <b>#{skill_id}</b> berhasil dihapus dari SQLite."
+            )
+        else:
+            await ctx.bot_gateway.send_message(
+                ctx.chat_id, f"❌ Skill <b>#{skill_id}</b> tidak ditemukan."
+            )
+
+    async def _handle_toggle_skill(self, ctx: CommandContext, args: list[str]) -> None:
+        """Toggle status aktif/nonaktif skill."""
+        if not args or not args[0].isdigit():
+            await ctx.bot_gateway.send_message(
+                ctx.chat_id, "❌ Format: <code>/skill toggle [ID_Skill]</code>"
+            )
+            return
+
+        skill_id = int(args[0])
+        ok = await self.service.repo.toggle_skill(skill_id)
+        if ok:
+            await ctx.bot_gateway.send_message(
+                ctx.chat_id, f"🔄 Status aktif/nonaktif skill <b>#{skill_id}</b> berhasil diubah."
+            )
+        else:
+            await ctx.bot_gateway.send_message(
+                ctx.chat_id, f"❌ Skill <b>#{skill_id}</b> tidak ditemukan."
+            )
+
+    # ---- EXISTING GEMINI & MEMORY HANDLERS ----
+
     async def _handle_add_keys(self, ctx: CommandContext, args: list[str]) -> None:
         """Tambah 1 hingga 100+ Gemini API Key ke SQLite Key Pool."""
         raw_input = " ".join(args).strip()
@@ -142,12 +377,10 @@ class AIAssistantHandlers:
                 ctx.chat_id,
                 "❌ <b>Format Salah.</b>\n\n"
                 "Gunakan format:\n"
-                "<code>/ai addkey AIzaSyKey1 AIzaSyKey2 AIzaSyKey3 ...</code>\n\n"
-                "<i>Anda dapat memasukkan hingga 100+ API Key sekaligus dipisahkan dengan spasi atau baris baru!</i>",
+                "<code>/ai addkey AIzaSyKey1 AIzaSyKey2 AIzaSyKey3 ...</code>",
             )
             return
 
-        # Split berdasarkan spasi, koma, atau baris baru
         keys = [k.strip() for k in re.split(r"[\s,\n]+", raw_input) if k.strip()]
 
         if not keys:
@@ -155,7 +388,6 @@ class AIAssistantHandlers:
             return
 
         added, duplicates = await self.service.repo.add_api_keys(keys)
-
         stats = await self.service.repo.get_keys_stats()
 
         msg = (
@@ -164,10 +396,7 @@ class AIAssistantHandlers:
             f"➕ <b>Ditambahkan ke SQLite:</b> <code>{added} Key</code>\n"
             f"⚠️ <b>Duplikat/Diabaikan:</b> <code>{duplicates} Key</code>\n\n"
             f"📊 <b>Status Key Pool Saat Ini:</b>\n"
-            f"• Total Key: <code>{stats['total_keys']}</code>\n"
-            f"• Key Aktif: <code>{stats['active_keys']}</code>\n"
-            f"• Key Mati/Habis Limit: <code>{stats['inactive_keys']}</code>\n\n"
-            f"<i>AI akan melakukan Load Balancing & Auto Rotation dari seluruh key aktif di SQLite secara otomatis!</i>"
+            f"• Key Aktif: <code>{stats['active_keys']} / {stats['total_keys']}</code>\n"
         )
         kb = build_sub_dashboard_keyboard([
             [InlineKeyboardButton("🔑 Lihat Seluruh Key Pool", callback_data="ask:keys")]
@@ -177,20 +406,15 @@ class AIAssistantHandlers:
     async def _handle_list_keys(self, ctx: CommandContext) -> None:
         """Lihat status & kesehatan Key Pool di SQLite."""
         stats = await self.service.repo.get_keys_stats()
-
         msg = (
             "🔑 <b>Statistik SQLite Gemini API Key Pool</b>\n\n"
             f"🟢 <b>Key Aktif:</b> <code>{stats['active_keys']} Key</code>\n"
             f"🔴 <b>Key Mati (Kuota Habis/Error):</b> <code>{stats['inactive_keys']} Key</code>\n"
             f"📦 <b>Total Key Terdaftar:</b> <code>{stats['total_keys']} Key</code>\n"
-            f"⚡ <b>Total Permintaan Ditangani:</b> <code>{stats['total_usage']} request</code>\n\n"
-            "<i>Sistem otomatis melakukan failover & rotasi key jika salah satu key mencapai rate limit!</i>"
+            f"⚡ <b>Total Permintaan Ditangani:</b> <code>{stats['total_usage']} request</code>\n"
         )
         kb = build_sub_dashboard_keyboard([
-            [
-                InlineKeyboardButton("🧹 Bersihkan Key Mati", callback_data="ask:clearkeys"),
-                InlineKeyboardButton("🧠 Memori AI", callback_data="ask:memory"),
-            ]
+            [InlineKeyboardButton("⚡ Groq Backup Pool", callback_data="ask:groqkeys")]
         ])
         await ctx.respond(msg, keyboard=kb)
 

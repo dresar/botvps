@@ -1,4 +1,4 @@
-"""Service cerdas untuk AI Assistant dengan Hermes Long-Term & Short-Term Memory System dan SQLite Gemini Key Pool."""
+"""Service cerdas untuk AI Assistant dengan Hermes Memory System, Dynamic Skill Engine, & Groq Backup Integration."""
 
 import asyncio
 import os
@@ -23,7 +23,7 @@ logger = structlog.get_logger(__name__)
 
 
 class AIAssistantService(BaseService):
-    """Service AI Assistant cerdas berbasis Hermes Memory System & SQLite Key Pool."""
+    """Service AI Assistant cerdas berbasis Hermes Memory & Dynamic Skill Engine."""
 
     def __init__(self, ctx: "ApplicationContext") -> None:
         super().__init__(ctx)
@@ -36,12 +36,12 @@ class AIAssistantService(BaseService):
         return ServiceHealth(
             service_name="AIAssistantService",
             status=status,
-            message="AI Assistant Hermes Memory & Key Pool Siap." if status == "healthy" else "AI Assistant Disabled.",
+            message="AI Assistant Hermes Memory & Skill Engine Siap." if status == "healthy" else "AI Assistant Disabled.",
             checked_at=datetime.utcnow(),
         )
 
     async def build_system_context_prompt(self, telegram_id: int) -> str:
-        """Kumpulkan statistik VPS real-time dan Long-Term Memory / Aturan Pengguna."""
+        """Kumpulkan statistik VPS real-time, Long-Term Memory, dan Dynamic Skills."""
         def _get_metrics() -> dict[str, Any]:
             mem = psutil.virtual_memory()
             disk = psutil.disk_usage("/")
@@ -60,6 +60,7 @@ class AIAssistantService(BaseService):
 
         m = await asyncio.to_thread(_get_metrics)
 
+        # 1. Long-Term Memories & User Rules
         memories = await self.repo.get_memories(telegram_id)
         memory_lines = []
         if memories:
@@ -67,13 +68,27 @@ class AIAssistantService(BaseService):
                 memory_lines.append(f"- [{mem.memory_type.upper()}] {mem.content}")
         memory_str = "\n".join(memory_lines) if memory_lines else "Belum ada memori khusus tersimpan."
 
+        # 2. Dynamic Hermes Skills
+        skills = await self.repo.get_skills(active_only=True)
+        skill_lines = []
+        if skills:
+            for sk in skills:
+                skill_lines.append(
+                    f"🛠️ [SKILL #{sk['id']}: {sk['skill_name'].upper()}]\n"
+                    f"Deskripsi: {sk['description'] or 'N/A'}\n"
+                    f"Instruksi Wajib: {sk['instructions']}\n"
+                )
+        skill_str = "\n".join(skill_lines) if skill_lines else "Tidak ada skill custom aktif."
+
         docker_info = "Aktif" if self._ctx.settings.docker_enabled else "Non-Aktif"
         cpu_guard_info = f"Aktif (Batas {self._ctx.settings.cpu_usage_limit}%)"
 
         system_prompt = (
-            f"Anda adalah 'Serverinka AI', asisten AI pintar pengelola VPS berbasis Google Gemini 2.5 Flash.\n\n"
+            f"Anda adalah 'Serverinka AI', asisten AI super pintar pengelola VPS berbasis Google Gemini & Groq Llama 3.3.\n\n"
             f"🧠 MEMORI JANGKA PANJANG & ATURAN PENGGUNA (HERMES MEMORY SYSTEM):\n"
             f"{memory_str}\n\n"
+            f"⚙️ KEMAMPUAN & SKILL KUSTOM DARI USER (HERMES DYNAMIC SKILL ENGINE):\n"
+            f"{skill_str}\n\n"
             f"📊 METRIK & STATUS VPS REAL-TIME SAAT INI:\n"
             f"• CPU Usage: {m['cpu_percent']}% ({m['cpu_count']} Cores)\n"
             f"• RAM Usage: {m['ram_used']} / {m['ram_total']} ({m['ram_percent']}%)\n"
@@ -82,7 +97,7 @@ class AIAssistantService(BaseService):
             f"• Docker Integration: {docker_info}\n"
             f"• CPU Guard: {cpu_guard_info}\n\n"
             f"PEDOMAN RESPON:\n"
-            f"1. PATUHI SELURUH ATURAN DAN MEMORI JANGKA PANJANG PENGGUNA DI ATAS. Jika memori meminta bahasa santai/gaul/non-formal, gunakan gaya bahasa tersebut secara konsisten!\n"
+            f"1. PATUHI SELURUH MEMORI DAN SKILL KUSTOM DI ATAS. Jika ada skill khusus yang cocok dengan permintaan user, jalankan instruksi skill tersebut secara ketat!\n"
             f"2. Gunakan status VPS real-time untuk menjawab pertanyaan teknis.\n"
             f"3. Berikan balasan yang jelas, solutif, dan ramah."
         )
@@ -98,11 +113,11 @@ class AIAssistantService(BaseService):
         messages = [{"role": h.role, "content": h.content} for h in history]
         messages.append({"role": "user", "content": user_prompt})
 
-        # 3. Buat System Prompt dengan statistik VPS & Memori Jangka Panjang
+        # 3. Buat System Prompt dengan statistik VPS, Memori, & Skills
         system_prompt = await self.build_system_context_prompt(telegram_id)
 
-        # 4. Panggil AI Client dengan Key Rotation & Failover dari SQLite Key Pool
-        raw_response = await self._call_ai_with_key_rotation(messages, system_prompt)
+        # 4. Panggil AI Client dengan Multi-Tier Rotation (Gemini Pool -> Groq Backup Pool -> Config)
+        raw_response = await self._call_ai_with_multi_tier_fallback(messages, system_prompt)
 
         # 5. Simpan percakapan ke Short-Term Memory
         await self.repo.add_chat_turn(telegram_id, "user", user_prompt)
@@ -110,52 +125,87 @@ class AIAssistantService(BaseService):
 
         return self._format_markdown_to_telegram_html(raw_response)
 
-    async def _call_ai_with_key_rotation(
+    async def _call_ai_with_multi_tier_fallback(
         self, messages: list[dict[str, str]], system_prompt: str
     ) -> str:
-        """Kirim pesan ke AI dengan Key Rotation & Auto-Failover dari SQLite Key Pool."""
-        max_attempts = 5
+        """Multi-Tier Provider Fallback Router: Gemini Pool -> Groq Backup Pool -> Config Fallback."""
         last_exception: Exception | None = None
 
-        for attempt in range(max_attempts):
+        # ---- TIER 1: GOOGLE GEMINI SQLITE KEY POOL ----
+        max_gemini_attempts = 5
+        for attempt in range(max_gemini_attempts):
             api_key = await self.repo.get_next_active_key()
             if not api_key:
-                # Fallback ke config jika tidak ada key di SQLite pool
-                api_key = self._ctx.settings.ai_api_key or None
-
-            if not api_key:
-                raise AIProviderNotConfiguredError(
-                    "Belum ada Gemini API Key yang aktif di SQLite Key Pool!\n\n"
-                    "Gunakan perintah Telegram berikut untuk menambahkan API Key:\n"
-                    "<code>/ai addkey AIzaSyKey1 AIzaSyKey2 ...</code>"
-                )
+                break
 
             try:
                 raw_response = await self.ai_client.chat_completion(
                     messages=messages,
                     system_prompt=system_prompt,
                     api_key=api_key,
+                    provider="gemini",
                     temperature=0.7,
                 )
-                if api_key != self._ctx.settings.ai_api_key:
-                    await self.repo.record_key_success(api_key)
+                await self.repo.record_key_success(api_key)
                 return raw_response
-
             except AIProviderError as e:
                 last_exception = e
                 logger.warning(
-                    "Gemini API Key mengalami kendala, mencoba key berikutnya...",
+                    "Gemini API Key bermasalah, beralih ke key Gemini berikutnya...",
                     attempt=attempt + 1,
-                    api_key_prefix=api_key[:10] if api_key else "empty",
+                    api_key_prefix=api_key[:10],
                     error=str(e),
                 )
-                if api_key and api_key != self._ctx.settings.ai_api_key:
-                    await self.repo.record_key_error(
-                        api_key, str(e), getattr(e, "status_code", 0)
-                    )
+                await self.repo.record_key_error(api_key, str(e), getattr(e, "status_code", 0))
 
-        raise AIProviderError(
-            f"Seluruh Gemini API Key yang dicoba gagal. Error terakhir: {last_exception}"
+        # ---- TIER 2: GROQ AI BACKUP SQLITE KEY POOL (Llama 3.3 70B) ----
+        max_groq_attempts = 5
+        for attempt in range(max_groq_attempts):
+            groq_key, groq_model = await self.repo.get_next_groq_key()
+            if not groq_key:
+                break
+
+            try:
+                logger.info("Menggunakan Backup Provider Groq AI...", model=groq_model)
+                raw_response = await self.ai_client.chat_completion(
+                    messages=messages,
+                    system_prompt=system_prompt,
+                    api_key=groq_key,
+                    provider="groq",
+                    model=groq_model or "llama-3.3-70b-versatile",
+                    temperature=0.7,
+                )
+                await self.repo.record_groq_success(groq_key)
+                return raw_response
+            except AIProviderError as e:
+                last_exception = e
+                logger.warning(
+                    "Groq API Key bermasalah, mencoba key Groq berikutnya...",
+                    attempt=attempt + 1,
+                    error=str(e),
+                )
+                await self.repo.record_groq_error(groq_key, str(e), getattr(e, "status_code", 0))
+
+        # ---- TIER 3: CONFIG FALLBACK AI API KEY ----
+        config_key = self._ctx.settings.ai_api_key
+        if config_key:
+            try:
+                return await self.ai_client.chat_completion(
+                    messages=messages,
+                    system_prompt=system_prompt,
+                    api_key=config_key,
+                    provider=self._ctx.settings.ai_provider,
+                    temperature=0.7,
+                )
+            except Exception as e:
+                last_exception = e
+
+        raise AIProviderNotConfiguredError(
+            f"Seluruh provider AI (Gemini & Groq Backup Pool) tidak dapat diakses!\n\n"
+            f"Detail error terakhir: {last_exception}\n\n"
+            f"Gunakan perintah Telegram berikut untuk memasukkan API Key baru:\n"
+            f"• <code>/ai addkey AIzaSy...</code> (Google Gemini)\n"
+            f"• <code>/ai addgroq gsk_...</code> (Groq Llama 3.3 70B)"
         )
 
     async def _auto_detect_and_save_memory(self, telegram_id: int, prompt: str) -> None:

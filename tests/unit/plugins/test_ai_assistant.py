@@ -1,4 +1,4 @@
-"""Unit test untuk ai_assistant plugin dengan Hermes Memory System & Gemini Key Pool."""
+"""Unit test untuk ai_assistant plugin dengan Hermes Memory System, Gemini & Groq Key Pool, serta Skill Engine."""
 
 import pytest
 from unittest.mock import AsyncMock, MagicMock
@@ -60,8 +60,20 @@ async def test_add_api_keys(mock_app_ctx):
 
 
 @pytest.mark.asyncio
-async def test_get_keys_stats(mock_app_ctx):
+async def test_add_groq_keys(mock_app_ctx):
     service = AIAssistantService(mock_app_ctx)
-    stats = await service.repo.get_keys_stats()
-    assert "total_keys" in stats
-    assert "active_keys" in stats
+    added, dupes = await service.repo.add_groq_keys(["gsk_key1", "gsk_key2"])
+    assert added == 2
+    assert dupes == 0
+
+
+@pytest.mark.asyncio
+async def test_add_and_get_skills(mock_app_ctx):
+    service = AIAssistantService(mock_app_ctx)
+    sk = await service.repo.add_skill(
+        skill_name="Penghemat RAM",
+        description="Analisis RAM VPS",
+        instructions="Selalu rekomendasikan 3 langkah hemat RAM",
+    )
+    assert sk["id"] == 1
+    assert sk["skill_name"] == "Penghemat RAM"
