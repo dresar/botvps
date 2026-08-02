@@ -76,6 +76,28 @@ class GuardianSettings(BaseSettings):
         default=90, description="Retensi audit log dalam hari"
     )
 
+    # ---- CPU GUARD ----
+    cpu_usage_limit: float = Field(default=80.0, description="Batas ambang persentase CPU (%)")
+    cpu_check_interval: int = Field(default=10, description="Interval pengecekan CPU (detik)")
+    cpu_grace_timeout: int = Field(default=5, description="Timeout grace period SIGTERM sebelum SIGKILL (detik)")
+    cpu_kill_mode: str = Field(default="auto", description="Mode penanganan: auto atau warn")
+    cpu_notification: bool = Field(default=True, description="Kirim notifikasi Telegram saat kill/warn")
+    cpu_cooldown: int = Field(default=300, description="Waktu cooldown sebelum membunuh proses yang sama (detik)")
+    cpu_history_limit: int = Field(default=50, description="Batas histori tindakan kill")
+    cpu_max_kill_per_hour: int = Field(default=10, description="Maksimal tindakan kill per jam")
+    cpu_auto_recover: bool = Field(default=True, description="Pemulihan otomatis service jika dimatikan")
+    cpu_ignore_users: str | list[str] = Field(default_factory=list, description="User Linux yang diabaikan")
+    cpu_ignore_process: str | list[str] = Field(default_factory=list, description="Nama proses yang diabaikan")
+    cpu_ignore_pid: str | list[int] = Field(default_factory=list, description="PID yang diabaikan")
+    cpu_ignore_regex: str = Field(default="", description="Regex command line yang diabaikan")
+
+    # ---- PACKAGE PROTECTION ----
+    package_guard_enabled: bool = Field(default=True, description="Aktifkan proteksi paket terlarang")
+    package_scan_interval_minutes: int = Field(default=10, description="Interval scan paket terlarang (menit)")
+    blocked_packages: str | list[str] = Field(
+        default_factory=lambda: ["opencode"], description="Daftar paket terlarang"
+    )
+
     # ---- PLUGINS ----
     disabled_plugins: str | list[str] = Field(
         default_factory=list, description="Plugin yang dinonaktifkan"
