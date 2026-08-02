@@ -337,6 +337,14 @@ class BotGateway:
         chat_id = message.chat_id
         text = message.text or ""
 
+        logger.info(
+            "📩 [INCOMING MESSAGE]",
+            user_id=telegram_user.id,
+            username=telegram_user.username,
+            chat_id=chat_id,
+            text=text,
+        )
+
         auth_result = await self._ctx.auth.authenticate(
             telegram_id=telegram_user.id,
             username=telegram_user.username,
@@ -344,6 +352,11 @@ class BotGateway:
         )
 
         if not auth_result.is_authorized:
+            logger.warning(
+                "⛔ [AUTH DENIED]",
+                user_id=telegram_user.id,
+                reason=auth_result.denial_reason,
+            )
             await self.send_message(
                 chat_id,
                 build_denied_message(auth_result.denial_reason or ""),
@@ -354,6 +367,7 @@ class BotGateway:
         assert user is not None
 
         if not self._check_rate_limit(user.telegram_id):
+            logger.warning("⏳ [RATE LIMITED]", user_id=telegram_user.id)
             window = self._ctx.settings.rate_limit_window_seconds
             await self.send_message(
                 chat_id,
@@ -371,6 +385,12 @@ class BotGateway:
 
         telegram_user = query.from_user
         data = query.data or ""
+
+        logger.info(
+            "🔘 [INCOMING BUTTON CLICK]",
+            user_id=telegram_user.id,
+            data=data,
+        )
 
         if data in ("nav:noop",):
             await self.answer_callback_query(query.id)
