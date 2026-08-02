@@ -47,7 +47,7 @@ class ProcessGuardianService(BaseService):
 
     def __init__(self, ctx: "ApplicationContext") -> None:
         super().__init__(ctx)
-        self.repo = CPUGuardRepository(ctx.db)
+        self.repo = CPUGuardRepository(ctx.database)
         self._enabled = True
         self._cooldown_cache: dict[str, float] = {}  # key -> timestamp last killed
         self._consecutive_overload_counts: dict[int, int] = {}  # PID -> count

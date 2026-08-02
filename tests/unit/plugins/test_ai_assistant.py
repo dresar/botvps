@@ -10,9 +10,10 @@ from guardian.plugins.ai_assistant.service import AIAssistantService
 @pytest.fixture
 def mock_app_ctx():
     ctx = MagicMock()
-    ctx.db = AsyncMock()
-    ctx.db.fetch_all.return_value = []
-    ctx.db.execute.return_value = MagicMock(lastrowid=1, rowcount=1)
+    ctx.database = AsyncMock()
+    ctx.db = ctx.database
+    ctx.database.fetch_all.return_value = []
+    ctx.database.execute.return_value = MagicMock(lastrowid=1, rowcount=1)
     ctx.settings.ai_provider = "gemini"
     ctx.settings.ai_api_key = "test_key"
     ctx.settings.ai_base_url = "https://one.apprentice.cyou/v1"

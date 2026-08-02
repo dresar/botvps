@@ -37,6 +37,11 @@ class ApplicationContext:
     plugin_manager: PluginManager
     bot: BotGateway
 
+    @property
+    def db(self) -> DatabaseManager:
+        """Alias untuk database."""
+        return self.database
+
 
 class GuardianEngine:
     """Engine utama Serverinka Guardian.

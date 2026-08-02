@@ -9,8 +9,9 @@ from guardian.plugins.package_protection.service import PackageProtectionService
 @pytest.fixture
 def mock_app_ctx():
     ctx = MagicMock()
-    ctx.db = AsyncMock()
-    ctx.db.fetch_all.return_value = [{"name": "opencode"}]
+    ctx.database = AsyncMock()
+    ctx.db = ctx.database
+    ctx.database.fetch_all.return_value = [{"name": "opencode"}]
     ctx.settings.package_guard_enabled = True
     ctx.settings.package_scan_interval_minutes = 10
     ctx.audit_service = AsyncMock()

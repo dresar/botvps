@@ -28,7 +28,7 @@ class PackageProtectionService(BaseService):
 
     def __init__(self, ctx: "ApplicationContext") -> None:
         super().__init__(ctx)
-        self.repo = PackageProtectionRepository(ctx.db)
+        self.repo = PackageProtectionRepository(ctx.database)
         self._enabled = True
 
     async def health_check(self) -> ServiceHealth:

@@ -27,7 +27,7 @@ class AIAssistantService(BaseService):
     def __init__(self, ctx: "ApplicationContext") -> None:
         super().__init__(ctx)
         self.ai_client = AIService(ctx.settings)
-        self.repo = AIMemoryRepository(ctx.db)
+        self.repo = AIMemoryRepository(ctx.database)
 
     async def health_check(self) -> ServiceHealth:
         """Cek kesehatan AI Service."""
