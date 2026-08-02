@@ -107,6 +107,10 @@ class AuthService:
 
     async def bootstrap_super_admins(self) -> None:
         """Tambahkan super admin dari env var jika belum ada di database."""
+        logger.info(
+            "Menginisialisasi super admin dari env...",
+            admin_ids=self._settings.telegram_admin_user_ids,
+        )
         for telegram_id in self._settings.telegram_admin_user_ids:
             existing = await self._find_user_by_telegram_id(telegram_id)
             if existing:
@@ -141,14 +145,27 @@ class AuthService:
         user = await self._find_user_by_telegram_id(telegram_id)
 
         if user is None:
-            await self._event_bus.publish(
-                AuthEvents.USER_DENIED, {"telegram_id": telegram_id, "reason": "not_registered"}
-            )
-            return AuthResult(
-                is_authorized=False,
-                user=None,
-                denial_reason="User tidak terdaftar.",
-            )
+            if telegram_id in self._settings.telegram_admin_user_ids:
+                user = await self.add_user(
+                    telegram_id=telegram_id,
+                    username=username,
+                    full_name=full_name or f"Super Admin ({telegram_id})",
+                    role="super_admin",
+                    added_by=telegram_id,
+                )
+                logger.info(
+                    "Super admin terdaftar otomatis saat autentikasi.",
+                    telegram_id=telegram_id,
+                )
+            else:
+                await self._event_bus.publish(
+                    AuthEvents.USER_DENIED, {"telegram_id": telegram_id, "reason": "not_registered"}
+                )
+                return AuthResult(
+                    is_authorized=False,
+                    user=None,
+                    denial_reason="User tidak terdaftar.",
+                )
 
         if user.is_blocked:
             await self._event_bus.publish(
