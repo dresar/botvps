@@ -57,8 +57,13 @@ LOG_DIR="/var/log/serverinka"
 
 mkdir -p "$INSTALL_DIR" "$CONFIG_DIR" "$VAR_DIR" "$LOG_DIR"
 
-log_info "Menyalin file aplikasi ke $INSTALL_DIR..."
-cp -r . "$INSTALL_DIR/"
+CURRENT_DIR="$(pwd -P)"
+TARGET_DIR="$(cd "$INSTALL_DIR" && pwd -P)"
+
+if [ "$CURRENT_DIR" != "$TARGET_DIR" ]; then
+    log_info "Menyalin file aplikasi ke $INSTALL_DIR..."
+    cp -r . "$INSTALL_DIR/"
+fi
 chown -R serverinka:serverinka "$INSTALL_DIR" "$CONFIG_DIR" "$VAR_DIR" "$LOG_DIR"
 
 # 5. Modifikasi Sudoers
