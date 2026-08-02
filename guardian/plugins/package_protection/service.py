@@ -131,31 +131,49 @@ class PackageProtectionService(BaseService):
                 pass
 
     async def _scan_and_cleanup_package(self, pkg_name: str) -> UninstallReportDTO | None:
-        """Bersihkan binary, folder config, cache, service, dan symlink paket terlarang."""
-        home = os.path.expanduser("~")
-        targets_dir = [
-            Path(home) / f".{pkg_name}",
-            Path("/root") / f".{pkg_name}",
-            Path(home) / ".config" / pkg_name,
-            Path(home) / ".cache" / pkg_name,
-            Path(home) / ".local" / "share" / pkg_name,
-            Path("/etc") / pkg_name,
-            Path("/var/log") / pkg_name,
-        ]
+        """Bersihkan binary, folder config, cache, service, dan symlink paket terlarang (termasuk npm/pip)."""
+        from guardian.utils.sandbox import run_command
 
-        binary_locations = [
-            shutil.which(pkg_name),
-            f"/usr/local/bin/{pkg_name}",
-            f"/usr/bin/{pkg_name}",
-            f"/bin/{pkg_name}",
-            f"{home}/.local/bin/{pkg_name}",
-            f"/root/.local/bin/{pkg_name}",
-        ]
+        home = os.path.expanduser("~")
+        pkg_variants = [pkg_name]
+        if not pkg_name.endswith("-ai"):
+            pkg_variants.append(f"{pkg_name}-ai")
 
         found_binaries = []
         found_configs = []
 
+        # 0. Coba uninstall via npm & pip jika tersedia
+        if shutil.which("npm"):
+            for variant in pkg_variants:
+                try:
+                    res = await run_command(["npm", "uninstall", "-g", variant], timeout=15.0)
+                    if res.success and "uninstalled" in res.stdout.lower():
+                        found_configs.append(f"npm global package: {variant}")
+                except Exception:
+                    pass
+
+        if shutil.which("pip") or shutil.which("pip3"):
+            pip_cmd = "pip3" if shutil.which("pip3") else "pip"
+            for variant in pkg_variants:
+                try:
+                    res = await run_command([pip_cmd, "uninstall", "-y", variant], timeout=15.0)
+                    if res.success and "uninstalled" in res.stdout.lower():
+                        found_configs.append(f"pip package: {variant}")
+                except Exception:
+                    pass
+
         # 1. Hapus Binaries & Symlinks
+        binary_locations = []
+        for variant in pkg_variants:
+            binary_locations.extend([
+                shutil.which(variant),
+                f"/usr/local/bin/{variant}",
+                f"/usr/bin/{variant}",
+                f"/bin/{variant}",
+                f"{home}/.local/bin/{variant}",
+                f"/root/.local/bin/{variant}",
+            ])
+
         for bin_path in set(filter(None, binary_locations)):
             p = Path(bin_path)
             try:
@@ -172,6 +190,19 @@ class PackageProtectionService(BaseService):
                     logger.error("Gagal menghapus binary.", path=str(p), error=str(e))
 
         # 2. Hapus Directories (Config/Cache/Data)
+        targets_dir = []
+        for variant in pkg_variants:
+            targets_dir.extend([
+                Path(home) / f".{variant}",
+                Path("/root") / f".{variant}",
+                Path(home) / ".config" / variant,
+                Path("/root") / ".config" / variant,
+                Path(home) / ".cache" / variant,
+                Path(home) / ".local" / "share" / variant,
+                Path("/etc") / variant,
+                Path("/var/log") / variant,
+            ])
+
         for target_dir in targets_dir:
             try:
                 dir_exists = target_dir.exists()
@@ -193,11 +224,11 @@ class PackageProtectionService(BaseService):
             return None
 
         # 3. Verifikasi ketersediaan command
-        is_still_available = shutil.which(pkg_name) is not None
+        is_still_available = any(shutil.which(v) is not None for v in pkg_variants)
         status = "failed" if is_still_available else "success"
         details = (
-            f"OpenCode/Package {pkg_name} terdeteksi dan dibersihkan dari VPS. "
-            f"Binary dihapus: {len(found_binaries)}, Folder dihapus: {len(found_configs)}."
+            f"Paket {pkg_name} terdeteksi dan dibersihkan dari VPS. "
+            f"Binary dihapus: {len(found_binaries)}, Folder/Package dihapus: {len(found_configs)}."
         )
 
         report = UninstallReportDTO(
