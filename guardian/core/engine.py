@@ -144,6 +144,23 @@ class GuardianEngine:
 
         await event_bus.publish("system.startup_complete", {"version": "1.0.0"})
 
+        # Kirim notifikasi bot aktif ke admin
+        try:
+            admin_ids = await auth.get_all_alert_recipient_ids()
+            if admin_ids:
+                import socket
+                hostname = socket.gethostname()
+                from guardian.utils.keyboard_builder import build_main_menu_keyboard
+                msg = (
+                    f"🚀 <b>Serverinka Guardian Berhasil Diaktifkan!</b>\n\n"
+                    f"🖥️ Server: <code>{hostname}</code>\n"
+                    f"⚙️ Status: Online & Siap Digunakan!\n"
+                    f"🔌 Plugin: {len(plugin_manager.loaded_plugins)} plugin dimuat."
+                )
+                await bot_gateway.broadcast(admin_ids, msg, keyboard=build_main_menu_keyboard())
+        except Exception:
+            logger.warning("Gagal mengirim notifikasi startup ke admin.")
+
         self._register_signal_handlers()
 
         logger.info(
