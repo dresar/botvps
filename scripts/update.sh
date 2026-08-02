@@ -24,7 +24,7 @@ git pull origin main
 
 # 3. Update dependensi via uv
 echo "[INFO] Mengupdate dependensi..."
-su - serverinka -c "cd $INSTALL_DIR && uv sync"
+su - serverinka -c "cd $INSTALL_DIR && /usr/local/bin/uv sync"
 
 # 4. Jalankan ulang service
 echo "[INFO] Memulai kembali service serverinka-guardian..."

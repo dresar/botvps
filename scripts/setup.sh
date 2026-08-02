@@ -23,7 +23,7 @@ log_error() {
 }
 
 # Pastikan dijalankan sebagai root
-if [ "$EUID" -ne 0 ]; me
+if [ "$EUID" -ne 0 ]; then
     log_error "Harap jalankan script ini sebagai root (sudo bash scripts/setup.sh)."
     exit 1
 fi
@@ -39,7 +39,8 @@ apt-get install -y -qq python3 python3-venv curl git systemd journalctl
 if ! command -v uv &> /dev/null; then
     log_info "Menginstall uv package manager..."
     curl -LsSf https://astral.sh/uv/install.sh | sh
-    export PATH="$HOME/.local/bin:$PATH"
+    cp "$HOME/.local/bin/uv" /usr/local/bin/uv || true
+    cp "$HOME/.local/bin/uvx" /usr/local/bin/uvx || true
 fi
 
 # 3. Buat user sistem 'serverinka' jika belum ada
@@ -69,7 +70,7 @@ fi
 
 # 6. Install dependencies Python via uv sebagai user serverinka
 log_info "Menginstall dependensi Python..."
-su - serverinka -c "cd $INSTALL_DIR && uv sync"
+su - serverinka -c "cd $INSTALL_DIR && /usr/local/bin/uv sync"
 
 # 7. Konfigurasi file environment
 if [ ! -f "$CONFIG_DIR/guardian.env" ]; then
@@ -96,7 +97,7 @@ User=serverinka
 Group=serverinka
 WorkingDirectory=/opt/serverinka-guardian
 EnvironmentFile=/etc/serverinka/guardian.env
-ExecStart=/root/.local/bin/uv run python -m guardian
+ExecStart=/usr/local/bin/uv run python -m guardian
 Restart=always
 RestartSec=10s
 StandardOutput=journal
