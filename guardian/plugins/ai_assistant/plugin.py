@@ -44,14 +44,19 @@ class AIAssistantPlugin(BasePlugin):
         h = AIAssistantHandlers(self._service)
 
         for ns in ("ask", "ai", "groq"):
-            for cmd in ("menu", "ask", "help", "addkey", "addkeys", "keys", "keylist", "addgroq", "groqadd", "groqkeys", "delkey", "clearkeys"):
+            for cmd in (
+                "menu", "ask", "help", "addkey", "addkeys", "keys", "keylist", "listkeys",
+                "addgroq", "groqadd", "groqkeys", "groq", "delkey", "deletekey", "delgroq",
+                "deletegroq", "clearkeys", "clean", "memory", "memories", "showmemory",
+                "remember", "forget",
+            ):
                 try:
                     ctx.plugin_manager.register_command(
                         namespace=ns,
                         command=cmd,
                         handler=h.handle_ask,
                         permissions=["system:read"],
-                        description="Tanya AI Assistant Gemini, Groq & Key Pool",
+                        description="Tanya AI Assistant Gemini, Groq, Skill & Key Pool",
                     )
                 except Exception:
                     pass

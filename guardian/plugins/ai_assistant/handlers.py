@@ -45,7 +45,7 @@ class AIAssistantHandlers:
 
         if sub == "remember":
             await self._handle_remember(ctx, sub_args)
-        elif sub == "memory":
+        elif sub in ("memory", "memories", "showmemory"):
             await self._handle_show_memory(ctx)
         elif sub == "forget":
             await self._handle_forget(ctx, sub_args)

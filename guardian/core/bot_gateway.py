@@ -547,6 +547,7 @@ class BotGateway:
             "ask:skills": ("skill", "list"),
             "skill:list": ("skill", "list"),
             "ask:memory": ("ask", "memory"),
+            "ask:memories": ("ask", "memory"),
             "ask:clearkeys": ("ask", "clearkeys"),
             "nav:audit_list": ("audit", "list"),
             "nav:audit": ("audit", "list"),
